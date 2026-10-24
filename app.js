@@ -86,6 +86,7 @@ function drawCassette(){
 }
 function setPlaying(on){
   playing = on;
+  document.body.classList.toggle("is-playing", on);
   $("cassette").classList.toggle("playing", on);
   $("playIcon").innerHTML = on ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>';
   $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");

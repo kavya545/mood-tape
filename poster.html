@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mood Tape</title>
+<meta name="description" content="Listen to music and watch your month turn into a cassette of moods.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&display=swap">
+<link rel="stylesheet" href="poster.css">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<div class="poster">
+  <header class="bar">
+    <span class="tiny">MOOD TAPE · VOL. 01</span>
+    <div class="glass-row">
+      <button class="glass pill" data-open="month">My month</button>
+      <a class="glass pill" href="print.html">Print</a>
+      <button class="glass pill hide-sm" id="suggestBtn">Suggest a song</button>
+    </div>
+  </header>
+
+  <h1 class="title">MOOD TAPE</h1>
+
+  <div class="center">
+    <div class="tape" id="cassette" role="button" tabindex="0" aria-label="Play or pause the tape"></div>
+    <aside class="tv glass" id="tv">
+      <div class="tv-screen"><div id="yt"></div><div class="tv-off" id="screenOff">no signal</div></div>
+    </aside>
+  </div>
+
+  <div class="caption">
+    <h2 id="nowTitle">Compact Cassette</h2>
+    <p id="nowArtist">Every song you play adds a colored stripe to your monthly tape. Pick a shelf to start.</p>
+  </div>
+
+  <div class="dock glass">
+    <button class="ghostbtn" data-open="shelves" aria-label="Open music shelves">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg><span>Shelves</span>
+    </button>
+    <div class="player">
+      <div class="ctrls">
+        <button class="ctl" id="prevBtn" aria-label="Previous song"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+        <button class="ctl play" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
+        <button class="ctl" id="nextBtn" aria-label="Next song"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      </div>
+      <div class="progress">
+        <span id="tCur">0:00</span>
+        <div class="bar-track" id="seek" role="slider" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><i id="fill"></i></div>
+        <span id="tDur">0:00</span>
+      </div>
+    </div>
+    <button class="ghostbtn" data-open="byo" aria-label="Add your own music">
+      <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg><span>Your music</span>
+    </button>
+  </div>
+
+  <footer class="foot tiny">
+    <span>No. 01</span>
+    <span class="hide-sm">Retro listening club</span>
+    <span class="masking" id="masking">side A</span>
+    <span class="hide-sm" id="moodNow">mood: —</span>
+    <span>by Kavya</span>
+  </footer>
+</div>
+
+<!-- ===== Glass panels (open on top, nothing scrolls on the page) ===== -->
+<div class="scrim" id="scrim" hidden></div>
+
+<section class="panel glass" id="panel-shelves" hidden role="dialog" aria-modal="true" aria-labelledby="shelvesH">
+  <div class="panel-head"><h3 id="shelvesH">Shelves</h3><button class="x" data-close aria-label="Close">×</button></div>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Music shelves"></div>
+  <p class="blurb" id="blurb"></p>
+  <ol class="songs" id="songs"></ol>
+</section>
+
+<section class="panel glass" id="panel-byo" hidden role="dialog" aria-modal="true" aria-labelledby="byoH">
+  <div class="panel-head"><h3 id="byoH">Your music</h3><button class="x" data-close aria-label="Close">×</button></div>
+  <p class="blurb">First pick how it feels. That color goes on your tape.</p>
+  <div class="chips" id="byoMoods"></div>
+  <form class="row" id="linkForm">
+    <label class="sr" for="linkIn">YouTube link</label>
+    <input id="linkIn" type="url" placeholder="Paste any YouTube link" autocomplete="off">
+    <button class="solid" type="submit">Play link</button>
+  </form>
+  <div class="row">
+    <label class="solid outline" for="fileIn">Play a song from my device</label>
+    <input id="fileIn" type="file" accept="audio/*" class="sr">
+  </div>
+  <p class="small">Files stay on your device. Nothing is uploaded.</p>
+</section>
+
+<section class="panel glass wide" id="panel-month" hidden role="dialog" aria-modal="true" aria-labelledby="monthTitle">
+  <div class="panel-head"><h3 id="monthTitle">My month</h3><button class="x" data-close aria-label="Close">×</button></div>
+  <div class="stripes" id="stripes"></div>
+  <p class="insight" id="insight"></p>
+  <div class="legend" id="legend"></div>
+  <div class="month-grid">
+    <div>
+      <h4>How do you feel right now?</h4>
+      <div class="chips" id="checkin"></div>
+      <h4 class="mt">Days</h4>
+      <div class="cal" id="cal"></div>
+    </div>
+    <div>
+      <h4>Recently on your tape</h4>
+      <ol class="recent" id="recent"></ol>
+      <a class="solid mt" href="print.html">Print my tape</a>
+    </div>
+  </div>
+</section>
+
+<p class="warn glass" id="fileWarn" hidden>Opened straight from your computer, so YouTube songs won't play. Use the live site link.</p>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<audio id="audio" preload="metadata"></audio>
+
+<script src="songs.js"></script>
+<script src="shared.js"></script>
+<script src="app.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
