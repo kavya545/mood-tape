@@ -27,7 +27,7 @@
 
   <div class="center">
     <div class="tape" id="cassette" role="button" tabindex="0" aria-label="Play or pause the tape"></div>
-    <aside class="tv glass" id="tv">
+    <aside class="tv glass" id="tv" hidden>
       <div class="tv-screen"><div id="yt"></div><div class="tv-off" id="screenOff">no signal</div></div>
     </aside>
   </div>
@@ -79,7 +79,7 @@
 
 <section class="panel glass" id="panel-byo" hidden role="dialog" aria-modal="true" aria-labelledby="byoH">
   <div class="panel-head"><h3 id="byoH">Your music</h3><button class="x" data-close aria-label="Close">×</button></div>
-  <p class="blurb">First pick how it feels. That color goes on your tape.</p>
+  <p class="blurb">First pick how it feels. That color goes on your tape. YouTube links play in a small video window and may show YouTube ads.</p>
   <div class="chips" id="byoMoods"></div>
   <form class="row" id="linkForm">
     <label class="sr" for="linkIn">YouTube link</label>

@@ -107,6 +107,7 @@ button{cursor:pointer}
 .songs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px;min-height:0;overflow:auto}
 .song{display:grid;grid-template-columns:24px minmax(0,1fr) 10px;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:12px;padding:7px 8px}
 .song:hover,.song.on{background:var(--glass-strong)}
+.songs .note{grid-column:1 / -1;padding:14px 8px;font-size:14px;opacity:.9;list-style:none}
 .song .n{font:600 11px var(--f-mono);opacity:.75;text-align:center}
 .song b{display:block;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .song small{display:block;font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

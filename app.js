@@ -1,5 +1,5 @@
-// Mood Tape player: plays shelf songs through YouTube, pasted links, or files from your device,
-// and logs the mood of every song you actually listen to (30 seconds or more).
+// Mood Tape player: shelves stream ad-free music from Audius, pasted links play through YouTube,
+// and files play straight from your device. Logs the mood of every song you listen to (30 seconds or more).
 
 const $ = id => document.getElementById(id);
 const data = loadData();
@@ -8,7 +8,9 @@ const DEFAULT_TINT = "#3CC6E8";
 
 let shelfId = SHELVES[0].id;     // shelf shown in the tabs
 let queue = null;                // { shelfId, index } for prev/next
-let current = null;              // { src: "yt" | "file", song: {t, a, id?, mood}, counted, heard }
+let current = null;              // { src: "yt" | "audio", song: {t, a, id?, aud?, mood}, counted, heard }
+const AUDIUS = "https://api.audius.co/v1";
+const APP = "MoodTape";
 let player = null, playerReady = false, pendingId = null;
 let playing = false;
 let byoMood = "happy";
@@ -32,6 +34,23 @@ function parseYouTubeId(url){
     return m ? m[2] : null;
   } catch (e) { return null; }
 }
+
+/* ---------- Audius (free, ad-free music) ---------- */
+async function loadShelf(shelf){
+  if (shelf.songs || shelf.loading) return;
+  shelf.loading = true; shelf.failed = false;
+  try {
+    const r = await fetch(`${AUDIUS}/tracks/trending?app_name=${APP}&time=allTime&genre=${encodeURIComponent(shelf.genre)}`);
+    if (!r.ok) throw new Error(r.status);
+    const json = await r.json();
+    shelf.songs = json.data
+      .filter(t => t.is_streamable !== false && !t.stream_conditions && t.duration > 45 && /[a-z]{3}/i.test(t.title))
+      .slice(0, 20)
+      .map(t => ({ t: t.title, a: t.user && t.user.name, aud: t.id, link: t.permalink ? "https://audius.co" + t.permalink : "https://audius.co" }));
+  } catch (e) { shelf.failed = true; }
+  shelf.loading = false;
+}
+const streamUrl = id => `${AUDIUS}/tracks/${id}/stream?app_name=${APP}`;
 
 /* ---------- the see-through cassette ---------- */
 function clearCassetteSVG(o){
@@ -96,7 +115,8 @@ function showNow(){
   if (!current) return;
   const m = MOOD[current.song.mood];
   $("nowTitle").textContent = current.song.t;
-  $("nowArtist").textContent = `${current.song.a || ""}${current.song.a ? " · " : ""}${m.label} stripe`;
+  const via = current.song.aud ? ` · <a href="${esc(current.song.link)}" target="_blank" rel="noopener" style="color:inherit">on Audius ↗</a>` : "";
+  $("nowArtist").innerHTML = `${esc(current.song.a || "")}${current.song.a ? " · " : ""}${m.label} stripe${via}`;
   $("moodNow").textContent = `mood: ${m.label.toLowerCase()}`;
   $("masking").textContent = m.label.toLowerCase();
   document.documentElement.style.setProperty("--tint", m.color);
@@ -105,7 +125,8 @@ function showNow(){
   renderSongs();
 }
 
-/* ---------- the little TV's status text ---------- */
+/* ---------- the little TV (only for pasted YouTube links) ---------- */
+function showTV(on){ $("tv").hidden = !on; }
 function tvSay(html){
   const el = $("screenOff");
   if (html === null){ el.hidden = true; return; }
@@ -121,8 +142,19 @@ function playSong(shelf, index){
   const song = shelf.songs[index];
   if (!song) return;
   queue = { shelfId: shelf.id, index };
+  if (song.aud){
+    // Audius: plain audio, no video player and no ads
+    try { if (player && playerReady) player.stopVideo(); } catch (e) {}
+    showTV(false);
+    current = { src: "audio", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
+    showNow();
+    const a = $("audio"); a.src = streamUrl(song.aud);
+    a.play().catch(() => {});
+    return;
+  }
   current = { src: "yt", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
   $("audio").pause();
+  showTV(true);
   showNow();
   tvSay("loading…");
   if (playerReady) player.loadVideoById(song.id);
@@ -135,7 +167,8 @@ function playFile(file){
   const url = URL.createObjectURL(file);
   a.dataset.url = url; a.src = url;
   queue = null;
-  current = { src: "file", song: { t: file.name.replace(/\.[^.]+$/, ""), a: "From your device", mood: byoMood }, counted: false, heard: 0 };
+  showTV(false);
+  current = { src: "audio", song: { t: file.name.replace(/\.[^.]+$/, ""), a: "From your device", mood: byoMood }, counted: false, heard: 0 };
   showNow();
   a.play().catch(() => toast("This file type can't play here. Try an MP3."));
 }
@@ -146,20 +179,20 @@ function step(dir){
   playSong(shelf, (queue.index + dir + shelf.songs.length) % shelf.songs.length);
 }
 function toggle(){
-  if (!current){ playSong(shelfById(shelfId), 0); return; }
-  if (current.src === "file"){ const a = $("audio"); a.paused ? a.play() : a.pause(); return; }
+  if (!current){ const sh = shelfById(shelfId); sh && sh.songs && sh.songs.length ? playSong(sh, 0) : open("shelves"); return; }
+  if (current.src === "audio"){ const a = $("audio"); a.paused ? a.play() : a.pause(); return; }
   if (!playerReady) return;
   playing ? player.pauseVideo() : player.playVideo();
 }
 function times(){
   if (!current) return { t: 0, d: 0 };
-  if (current.src === "file"){ const a = $("audio"); return { t: a.currentTime || 0, d: a.duration || 0 }; }
+  if (current.src === "audio"){ const a = $("audio"); return { t: a.currentTime || 0, d: a.duration || 0 }; }
   if (!playerReady) return { t: 0, d: 0 };
   try { return { t: player.getCurrentTime() || 0, d: player.getDuration() || 0 }; } catch (e) { return { t: 0, d: 0 }; }
 }
 function seekTo(frac){
   const { d } = times(); if (!d) return;
-  if (current.src === "file") $("audio").currentTime = frac * d;
+  if (current.src === "audio") $("audio").currentTime = frac * d;
   else player.seekTo(frac * d, true);
 }
 
@@ -222,9 +255,15 @@ window.onYouTubeIframeAPIReady = function(){
 };
 
 const audio = $("audio");
-audio.addEventListener("play", () => { if (current && current.src === "file"){ setPlaying(true); tvSay("playing from your device"); } });
-audio.addEventListener("pause", () => { if (current && current.src === "file") setPlaying(false); });
-audio.addEventListener("ended", () => { setPlaying(false); if (current && current.heard >= 10) logListen(); });
+audio.addEventListener("play", () => { if (current && current.src === "audio") setPlaying(true); });
+audio.addEventListener("pause", () => { if (current && current.src === "audio") setPlaying(false); });
+audio.addEventListener("ended", () => { setPlaying(false); if (current && current.heard >= 10) logListen(); if (current && current.song.aud) step(1); });
+audio.addEventListener("error", () => {
+  if (!current || current.src !== "audio" || !audio.getAttribute("src")) return;
+  setPlaying(false);
+  if (current.song.aud){ toast("This song didn't load. Skipping it."); setTimeout(() => step(1), 1200); }
+  else toast("This file type can't play here. Try an MP3.");
+});
 
 /* ---------- glass panels ---------- */
 let openPanel = null, lastFocus = null;
@@ -256,6 +295,12 @@ function renderTabs(){
 function renderSongs(){
   const shelf = shelfById(shelfId);
   if (!shelf){ shelfId = SHELVES[0].id; return renderSongs(); }
+  if (shelf.genre && !shelf.songs){
+    $("blurb").textContent = shelf.blurb;
+    $("songs").innerHTML = `<li class="note">${shelf.failed ? "Couldn't reach the music library. Check your internet and tap the shelf again." : "Tuning in…"}</li>`;
+    if (!shelf.loading){ loadShelf(shelf).then(() => { if (shelfId === shelf.id) renderSongs(); }); }
+    return;
+  }
   $("blurb").textContent = shelf.mood ? `${shelf.blurb} Each song adds a ${MOOD[shelf.mood].label.toLowerCase()} stripe.` : shelf.blurb;
   $("songs").innerHTML = shelf.songs.map((s, i) => {
     const on = queue && queue.shelfId === shelf.id && queue.index === i;
@@ -266,7 +311,9 @@ function renderSongs(){
 }
 $("tabs").addEventListener("click", e => {
   const b = e.target.closest(".tab"); if (!b) return;
-  shelfId = b.dataset.shelf; renderTabs(); renderSongs();
+  shelfId = b.dataset.shelf;
+  const sh = shelfById(shelfId); if (sh && sh.failed){ sh.failed = false; }
+  renderTabs(); renderSongs();
 });
 $("songs").addEventListener("click", e => {
   const b = e.target.closest(".song"); if (!b) return;

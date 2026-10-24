@@ -15,17 +15,15 @@ Made by Kavya Srivastava.
 | `print.html` + `print.js` | The print studio: cassette label, J-card, receipt and stickers |
 
 ## How it works
-- Songs play through YouTube's official player (the little TV next to the cassette). YouTube requires that player to stay visible.
+- Shelf songs stream free and ad-free from **Audius** (audius.co), an open platform for independent artists. Each shelf loads that genre's top tracks.
+- Pasted YouTube links play in a small video window (YouTube requires it to stay visible). These can show YouTube ads.
 - A song counts toward your mood after you listen for **30 seconds**. The mood comes from the shelf (genre) it's on.
 - Pasted YouTube links and files from your device use the mood you pick.
 - Everything is saved in the visitor's own browser (localStorage). No backend, no login. It stays on that device.
 
-## Add a song
-1. Open `songs.js`.
-2. Find the shelf and copy a line like this:
-   `{ t: "Pehla Nasha", a: "Udit Narayan & Sadhana Sargam", id: "ODu7OyAqK-Q" },`
-3. Change the title, the artist and the id. The id is the 11 characters after `watch?v=` in the YouTube link.
-4. Some videos can't be played on other websites, because the owner turned that off. If a song gets skipped, find another upload of it (lyric videos and "Audio" uploads often work).
+## Change the shelves
+Open `songs.js`. Each shelf has a `genre` (an Audius genre such as Lo-Fi, Jazz, Vaporwave, Funk, Rock, Ambient, Pop, R&B/Soul) and a `mood`.
+Change them, or copy a line to add a new shelf.
 
 ## Collect song suggestions
 1. Make a free form at tally.so or Google Forms (fields: song, artist, which shelf).
