@@ -3,158 +3,123 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mood Tape 98</title>
-<meta name="description" content="A 90s music player where every song you play adds a mood stripe to your monthly cassette.">
+<title>Mood Tape</title>
+<meta name="description" content="Listen to music and watch your month turn into a cassette of moods.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=Permanent+Marker&family=IBM+Plex+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="win98.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&display=swap">
+<link rel="stylesheet" href="poster.css">
 </head>
 <body>
+<div class="grain" aria-hidden="true"></div>
 
-<div class="desktop">
-  <!-- desktop icons -->
-  <nav class="icons" aria-label="Desktop">
-    <button class="icon" data-open="shelves">
-      <svg viewBox="0 0 32 32"><rect x="3" y="8" width="26" height="18" fill="#f6d55c" stroke="#000"/><path d="M3 8 h9 l2 -3 h-11 z" fill="#e8b923" stroke="#000"/><path d="M15 12 v8 a2.5 2 0 1 1 -1.5 -1.8 v-6.2 l6 -1.5 v6.5 a2.5 2 0 1 1 -1.5 -1.8 v-3.6 z" fill="#000"/></svg>
-      <span>Shelves</span>
-    </button>
-    <button class="icon" data-open="byo">
-      <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="#d9e3ec" stroke="#000"/><circle cx="16" cy="16" r="13" fill="url(#cd)"/><circle cx="16" cy="16" r="3.5" fill="#fff" stroke="#000"/><defs><linearGradient id="cd" x1="0" x2="1"><stop offset="0" stop-color="#ff9ad5" stop-opacity=".5"/><stop offset=".5" stop-color="#9ef" stop-opacity=".5"/><stop offset="1" stop-color="#ffe680" stop-opacity=".5"/></linearGradient></defs></svg>
-      <span>Your Music</span>
-    </button>
-    <button class="icon" data-open="month">
-      <svg viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="22" fill="#fff" stroke="#000"/><rect x="4" y="6" width="24" height="6" fill="#c00"/><rect x="8" y="16" width="4" height="4" fill="#FF7AA8"/><rect x="14" y="16" width="4" height="4" fill="#3CC6A4"/><rect x="20" y="16" width="4" height="4" fill="#FFC23C"/><rect x="8" y="22" width="4" height="4" fill="#6C8BFF"/><rect x="14" y="22" width="4" height="4" fill="#B49BFF"/></svg>
-      <span>Mood Diary</span>
-    </button>
-    <a class="icon" href="print.html">
-      <svg viewBox="0 0 32 32"><rect x="9" y="4" width="14" height="9" fill="#fff" stroke="#000"/><rect x="4" y="12" width="24" height="11" fill="#c0c0c0" stroke="#000"/><rect x="9" y="19" width="14" height="9" fill="#fff" stroke="#000"/><path d="M11 22h10M11 25h7" stroke="#000"/><circle cx="24" cy="15" r="1" fill="#0a0"/></svg>
-      <span>Print Studio</span>
-    </a>
-    <button class="icon" data-suggest>
-      <svg viewBox="0 0 32 32"><rect x="3" y="8" width="26" height="17" fill="#fff" stroke="#000"/><path d="M3 8 l13 10 l13 -10" fill="none" stroke="#000"/><circle cx="25" cy="9" r="4" fill="#c00"/></svg>
-      <span>Suggest a Song</span>
-    </button>
-  </nav>
-
-  <!-- ===== MoodAmp: the player window ===== -->
-  <section class="win player-win" aria-label="MoodAmp player">
-    <div class="titlebar"><span class="tb-title"><i class="tb-ico"></i>MoodAmp</span><span class="tb-btns" aria-hidden="true"><b>_</b><b>□</b><b>×</b></span></div>
-    <div class="amp">
-      <div class="lcd">
-        <div class="lcd-left">
-          <div class="lcd-state" id="lcdState">■</div>
-          <div class="lcd-time" id="tCur">0:00</div>
-          <div class="viz" id="viz" aria-hidden="true"></div>
-        </div>
-        <div class="lcd-right">
-          <div class="marquee"><div class="marquee-inner"><span id="nowTitle">MOOD TAPE 98 · PICK A SONG FROM SHELVES</span><span aria-hidden="true" class="dup"></span></div></div>
-          <div class="lcd-meta"><span>128 kbps</span><span>44 kHz</span><span class="stereo">stereo</span></div>
-          <div class="lcd-meta"><span id="moodNow">mood: —</span><span>len <b id="tDur">0:00</b></span></div>
-          <p class="lcd-artist" id="nowArtist">every song adds a stripe to your tape</p>
-        </div>
-      </div>
-      <div class="seek" id="seek" role="slider" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><i id="fill"></i></div>
-      <div class="transport">
-        <button class="tbtn" id="prevBtn" aria-label="Previous song"><svg viewBox="0 0 16 16"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
-        <button class="tbtn play" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
-        <button class="tbtn" id="nextBtn" aria-label="Next song"><svg viewBox="0 0 16 16"><path d="M11 3h2v10h-2zM3 3v10l7-5z"/></svg></button>
-        <span class="spacer"></span>
-        <button class="tbtn txt" data-open="shelves">PL</button>
-        <button class="tbtn txt" data-open="byo" aria-label="Your music">⏏</button>
-        <button class="tbtn txt" data-open="month">DIARY</button>
-      </div>
-      <div class="deck">
-        <div class="deck-door">
-          <div class="tape" id="cassette" role="button" tabindex="0" aria-label="Play or pause the tape"></div>
-        </div>
-        <div class="deck-labels"><span>AUTO REVERSE</span><span class="sticker" id="masking">side A</span><span>DOLBY NR</span></div>
-      </div>
+<div class="poster">
+  <header class="bar">
+    <span class="tiny">MOOD TAPE · VOL. 01</span>
+    <div class="glass-row">
+      <button class="glass pill" data-open="month">My month</button>
+      <a class="glass pill" href="print.html">Print</a>
+      <button class="glass pill hide-sm" id="suggestBtn">Suggest a song</button>
     </div>
-  </section>
+  </header>
 
-  <!-- ===== Video window (YouTube must stay visible) ===== -->
-  <section class="win tv-win" aria-label="Video">
-    <div class="titlebar"><span class="tb-title"><i class="tb-ico tv"></i>Video</span><span class="tb-btns" aria-hidden="true"><b>×</b></span></div>
-    <div class="tv-body">
+  <h1 class="title">MOOD TAPE</h1>
+
+  <div class="center">
+    <div class="tape" id="cassette" role="button" tabindex="0" aria-label="Play or pause the tape"></div>
+    <aside class="tv glass" id="tv">
       <div class="tv-screen"><div id="yt"></div><div class="tv-off" id="screenOff">no signal</div></div>
-    </div>
-  </section>
-</div>
-
-<!-- ===== Taskbar ===== -->
-<footer class="taskbar">
-  <button class="start" id="startBtn" aria-expanded="false" aria-controls="startMenu"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="6" height="6" fill="#f25022"/><rect x="9" y="1" width="6" height="6" fill="#7fba00"/><rect x="1" y="9" width="6" height="6" fill="#00a4ef"/><rect x="9" y="9" width="6" height="6" fill="#ffb900"/></svg>Start</button>
-  <span class="task on">MoodAmp</span>
-  <span class="task hide-sm">Video</span>
-  <span class="tray"><i class="tray-mood" id="trayMood" title="Today's mood"></i><span id="clock">12:00 PM</span></span>
-</footer>
-
-<div class="startmenu win" id="startMenu" hidden>
-  <div class="sm-band">Mood Tape <b>98</b></div>
-  <div class="sm-items">
-    <button data-open="shelves">🎵 Shelves</button>
-    <button data-open="byo">💿 Your Music</button>
-    <button data-open="month">📅 Mood Diary</button>
-    <a href="print.html">🖨️ Print Studio</a>
-    <button id="suggestBtn">✉️ Suggest a Song</button>
-    <hr>
-    <a href="poster.html">🖼️ Poster version</a>
+    </aside>
   </div>
+
+  <div class="caption">
+    <h2 id="nowTitle">Compact Cassette</h2>
+    <p id="nowArtist">Every song you play adds a colored stripe to your monthly tape. Pick a shelf to start.</p>
+  </div>
+
+  <div class="dock glass">
+    <button class="ghostbtn" data-open="shelves" aria-label="Open music shelves">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg><span>Shelves</span>
+    </button>
+    <div class="player">
+      <div class="ctrls">
+        <button class="ctl" id="prevBtn" aria-label="Previous song"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+        <button class="ctl play" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
+        <button class="ctl" id="nextBtn" aria-label="Next song"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      </div>
+      <div class="progress">
+        <span id="tCur">0:00</span>
+        <div class="bar-track" id="seek" role="slider" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><i id="fill"></i></div>
+        <span id="tDur">0:00</span>
+      </div>
+    </div>
+    <button class="ghostbtn" data-open="byo" aria-label="Add your own music">
+      <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg><span>Your music</span>
+    </button>
+  </div>
+
+  <footer class="foot tiny">
+    <span>No. 01</span>
+    <span class="hide-sm">Retro listening club</span>
+    <span class="masking" id="masking">side A</span>
+    <span class="hide-sm" id="moodNow">mood: —</span>
+    <span>by Kavya</span>
+  </footer>
 </div>
 
-<!-- ===== Windows that open on top ===== -->
+<!-- ===== Glass panels (open on top, nothing scrolls on the page) ===== -->
 <div class="scrim" id="scrim" hidden></div>
 
-<section class="win dialog playlist" id="panel-shelves" hidden role="dialog" aria-modal="true" aria-labelledby="shelvesH">
-  <div class="titlebar"><span class="tb-title" id="shelvesH"><i class="tb-ico"></i>Playlist Editor: Shelves</span><span class="tb-btns"><button data-close aria-label="Close">×</button></span></div>
-  <div class="dlg-body">
-    <div class="tabs" id="tabs" role="tablist" aria-label="Music shelves"></div>
-    <p class="blurb" id="blurb"></p>
-    <ol class="songs" id="songs"></ol>
-  </div>
+<section class="panel glass" id="panel-shelves" hidden role="dialog" aria-modal="true" aria-labelledby="shelvesH">
+  <div class="panel-head"><h3 id="shelvesH">Shelves</h3><button class="x" data-close aria-label="Close">×</button></div>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Music shelves"></div>
+  <p class="blurb" id="blurb"></p>
+  <ol class="songs" id="songs"></ol>
 </section>
 
-<section class="win dialog" id="panel-byo" hidden role="dialog" aria-modal="true" aria-labelledby="byoH">
-  <div class="titlebar"><span class="tb-title" id="byoH"><i class="tb-ico cd"></i>Open: Your Music</span><span class="tb-btns"><button data-close aria-label="Close">×</button></span></div>
-  <div class="dlg-body">
-    <fieldset><legend>1. How does it feel?</legend><div class="chips" id="byoMoods"></div></fieldset>
-    <fieldset><legend>2. Paste a YouTube link</legend>
-      <form class="row" id="linkForm">
-        <label class="sr" for="linkIn">YouTube link</label>
-        <input id="linkIn" type="url" placeholder="https://youtu.be/..." autocomplete="off">
-        <button class="btn98" type="submit">Play</button>
-      </form>
-    </fieldset>
-    <fieldset><legend>…or play a file from your computer</legend>
-      <div class="row"><label class="btn98" for="fileIn">Browse…</label><input id="fileIn" type="file" accept="audio/*" class="sr"><span class="small">Stays on your device. Nothing is uploaded.</span></div>
-    </fieldset>
+<section class="panel glass" id="panel-byo" hidden role="dialog" aria-modal="true" aria-labelledby="byoH">
+  <div class="panel-head"><h3 id="byoH">Your music</h3><button class="x" data-close aria-label="Close">×</button></div>
+  <p class="blurb">First pick how it feels. That color goes on your tape.</p>
+  <div class="chips" id="byoMoods"></div>
+  <form class="row" id="linkForm">
+    <label class="sr" for="linkIn">YouTube link</label>
+    <input id="linkIn" type="url" placeholder="Paste any YouTube link" autocomplete="off">
+    <button class="solid" type="submit">Play link</button>
+  </form>
+  <div class="row">
+    <label class="solid outline" for="fileIn">Play a song from my device</label>
+    <input id="fileIn" type="file" accept="audio/*" class="sr">
   </div>
+  <p class="small">Files stay on your device. Nothing is uploaded.</p>
 </section>
 
-<section class="win dialog wide" id="panel-month" hidden role="dialog" aria-modal="true" aria-labelledby="monthTitle">
-  <div class="titlebar"><span class="tb-title"><i class="tb-ico diary"></i><span id="monthTitle">Mood Diary</span></span><span class="tb-btns"><button data-close aria-label="Close">×</button></span></div>
-  <div class="dlg-body">
-    <div class="stripes" id="stripes"></div>
-    <p class="insight" id="insight"></p>
-    <div class="legend" id="legend"></div>
-    <div class="month-grid">
-      <fieldset><legend>How do you feel right now?</legend><div class="chips" id="checkin"></div>
-        <div class="cal" id="cal"></div></fieldset>
-      <fieldset><legend>Recently on your tape</legend><ol class="recent" id="recent"></ol>
-        <a class="btn98" href="print.html">Print my tape…</a></fieldset>
+<section class="panel glass wide" id="panel-month" hidden role="dialog" aria-modal="true" aria-labelledby="monthTitle">
+  <div class="panel-head"><h3 id="monthTitle">My month</h3><button class="x" data-close aria-label="Close">×</button></div>
+  <div class="stripes" id="stripes"></div>
+  <p class="insight" id="insight"></p>
+  <div class="legend" id="legend"></div>
+  <div class="month-grid">
+    <div>
+      <h4>How do you feel right now?</h4>
+      <div class="chips" id="checkin"></div>
+      <h4 class="mt">Days</h4>
+      <div class="cal" id="cal"></div>
+    </div>
+    <div>
+      <h4>Recently on your tape</h4>
+      <ol class="recent" id="recent"></ol>
+      <a class="solid mt" href="print.html">Print my tape</a>
     </div>
   </div>
 </section>
 
-<p class="win warn" id="fileWarn" hidden>Opened straight from your computer, so YouTube songs won't play. Use the live site link.</p>
-<div class="toast win" id="toast" role="status" aria-live="polite"></div>
+<p class="warn glass" id="fileWarn" hidden>Opened straight from your computer, so YouTube songs won't play. Use the live site link.</p>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <audio id="audio" preload="metadata"></audio>
 
 <script src="songs.js"></script>
 <script src="shared.js"></script>
 <script src="app.js"></script>
-<script src="ui98.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
