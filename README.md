@@ -6,8 +6,9 @@ Made by Kavya Srivastava.
 ## What's in the folder
 | File | What it does |
 |---|---|
-| `index.html` | The player page: the cassette, shelves, "bring your own music" and "My month" |
-| `style.css` | All the styling |
+| `index.html` | The landing page and player: one screen, no scrolling. Shelves, Your music and My month open as glass panels |
+| `poster.css` | Styling for the landing page (the grainy blue poster look) |
+| `style.css` | Styling for the print studio |
 | `songs.js` | **The music library.** Moods, shelves and songs. Edit this to add songs |
 | `shared.js` | Saving data and drawing the cassette (used by both pages). Your suggestion-form link goes here |
 | `app.js` | How the player works |

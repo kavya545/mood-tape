@@ -4,6 +4,7 @@
 const $ = id => document.getElementById(id);
 const data = loadData();
 const LISTEN_SECONDS = 30;
+const DEFAULT_TINT = "#3CC6E8";
 
 let shelfId = SHELVES[0].id;     // shelf shown in the tabs
 let queue = null;                // { shelfId, index } for prev/next
@@ -32,31 +33,60 @@ function parseYouTubeId(url){
   } catch (e) { return null; }
 }
 
-/* ---------- cassette ---------- */
-function drawCassette(){
-  const mk = monthKey(new Date());
-  const mood = current ? MOOD[current.song.mood] : null;
-  $("cassette").innerHTML = cassetteSVG({
-    title: current ? current.song.t : "Mood Tape",
-    sub: current ? (current.song.a || "") : "press play to start this month's tape",
-    color: mood ? mood.color : "#E9E6DD",
-    stripes: stripeColors(listensIn(data, mk)),
-    uid: "main", cls: playing ? "playing" : ""
-  });
-  updateReels();
+/* ---------- the see-through cassette ---------- */
+function clearCassetteSVG(o){
+  const { title = "", sub = "", ring = "#FF4F6D", stripes = [] } = o;
+  const t = title.length > 26 ? title.slice(0, 25) + "…" : title;
+  const s = sub.length > 44 ? sub.slice(0, 43) + "…" : sub;
+  const bw = 300, w = stripes.length ? bw / stripes.length : bw;
+  const band = stripes.length
+    ? stripes.map((c, i) => `<rect x="${(50 + i * w).toFixed(2)}" y="58" width="${(w + .4).toFixed(2)}" height="6" fill="${c}"/>`).join("")
+    : "";
+  const hub = (cx, k) => `
+    <circle cx="${cx}" cy="128" r="25" fill="none" stroke="${ring}" stroke-width="5"/>
+    <g class="hub hub-${k}">
+      <circle cx="${cx}" cy="128" r="17" fill="#F1F5F8"/>
+      ${[0, 60, 120, 180, 240, 300].map(a => `<rect x="${cx - 2}" y="113" width="4" height="7" rx="1.5" fill="#2A2E36" transform="rotate(${a} ${cx} 128)"/>`).join("")}
+      <circle cx="${cx}" cy="128" r="5" fill="#2A2E36"/>
+    </g>`;
+  const screw = (x, y) => `<circle cx="${x}" cy="${y}" r="6" fill="#3A3F48"/><circle cx="${x - 1.5}" cy="${y - 1.5}" r="2" fill="rgba(255,255,255,.35)"/><path d="M${x - 3.5} ${y} H${x + 3.5}" stroke="#15181D" stroke-width="1.4"/>`;
+  return `<svg viewBox="0 0 400 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cassette: ${esc(title)}">
+  <defs>
+    <linearGradient id="glare" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".18"/></linearGradient>
+  </defs>
+  <rect x="4" y="4" width="392" height="248" rx="14" fill="rgba(235,248,255,.22)" stroke="rgba(255,255,255,.85)" stroke-width="2"/>
+  <rect x="14" y="14" width="372" height="228" rx="10" fill="none" stroke="rgba(255,255,255,.35)"/>
+  <rect x="34" y="20" width="332" height="34" rx="4" fill="rgba(255,255,255,.88)"/>
+  <text x="46" y="43" font-family="'Permanent Marker', cursive" font-size="17" fill="#1C2630">${esc(t)}</text>
+  <text x="354" y="34" text-anchor="end" font-family="'IBM Plex Mono', monospace" font-size="8" font-weight="600" fill="#6B7783">C-60</text>
+  <text x="354" y="47" text-anchor="end" font-family="'IBM Plex Mono', monospace" font-size="8" fill="#6B7783">${esc(s)}</text>
+  ${band}
+  <path d="M44 72 H356 Q366 72 366 82 V176 Q366 186 356 186 H44 Q34 186 34 176 V82 Q34 72 44 72 Z" fill="#1A1D23" opacity=".93"/>
+  <rect x="168" y="104" width="64" height="40" rx="6" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.3)"/>
+  <path d="M172 136 H228" stroke="#5B3D2E" stroke-width="3"/>
+  ${hub(122, "l")}${hub(278, "r")}
+  <path d="M86 252 L106 200 H294 L314 252" fill="rgba(235,248,255,.18)" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
+  <circle cx="134" cy="228" r="7" fill="rgba(20,30,40,.55)"/><circle cx="266" cy="228" r="7" fill="rgba(20,30,40,.55)"/>
+  <rect x="176" y="218" width="14" height="12" rx="2" fill="rgba(20,30,40,.55)"/><rect x="210" y="218" width="14" height="12" rx="2" fill="rgba(20,30,40,.55)"/>
+  ${screw(22, 22)}${screw(378, 22)}${screw(22, 234)}${screw(378, 234)}${screw(200, 196)}
+  <rect x="4" y="4" width="392" height="248" rx="14" fill="url(#glare)" pointer-events="none"/>
+</svg>`;
 }
-function updateReels(){
-  const { t, d } = times();
-  const p = d ? Math.min(1, t / d) : 0;
-  const svg = $("cassette").querySelector("svg");
-  if (!svg) return;
-  svg.querySelector(".tapeL").setAttribute("r", (10 + 16 * (1 - p)).toFixed(1));
-  svg.querySelector(".tapeR").setAttribute("r", (10 + 16 * p).toFixed(1));
+
+function drawCassette(){
+  const mood = current ? MOOD[current.song.mood] : null;
+  const box = $("cassette");
+  box.innerHTML = clearCassetteSVG({
+    title: current ? current.song.t : "Mood Tape",
+    sub: current ? (current.song.a || "") : "side A",
+    ring: mood ? mood.color : "#FF4F6D",
+    stripes: stripeColors(listensIn(data, monthKey(new Date())))
+  });
+  box.classList.toggle("playing", playing);
 }
 function setPlaying(on){
   playing = on;
-  const svg = $("cassette").querySelector("svg");
-  if (svg) svg.classList.toggle("playing", on);
+  $("cassette").classList.toggle("playing", on);
   $("playIcon").innerHTML = on ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>';
   $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
 }
@@ -65,9 +95,11 @@ function setPlaying(on){
 function showNow(){
   if (!current) return;
   const m = MOOD[current.song.mood];
-  $("nowMood").innerHTML = `<i style="background:${m.color}"></i>${m.label}`;
   $("nowTitle").textContent = current.song.t;
-  $("nowArtist").textContent = current.song.a || "";
+  $("nowArtist").textContent = `${current.song.a || ""}${current.song.a ? " · " : ""}${m.label} stripe`;
+  $("moodNow").textContent = `mood: ${m.label.toLowerCase()}`;
+  $("masking").textContent = m.label.toLowerCase();
+  document.documentElement.style.setProperty("--tint", m.color);
   document.title = `${current.song.t} · Mood Tape`;
   drawCassette();
   renderSongs();
@@ -76,7 +108,7 @@ function showNow(){
 /* ---------- playing things ---------- */
 function stopAll(){
   try { if (player && playerReady) player.stopVideo(); } catch (e) {}
-  const a = $("audio"); a.pause();
+  $("audio").pause();
 }
 function playSong(shelf, index){
   const song = shelf.songs[index];
@@ -133,13 +165,11 @@ function logListen(){
   drawCassette(); renderMonth();
 }
 
-// tick: progress bar, reels, and the 30-second listen counter
 setInterval(() => {
   const { t, d } = times();
   $("tCur").textContent = fmt(t); $("tDur").textContent = fmt(d);
   $("fill").style.width = d ? `${Math.min(100, t / d * 100)}%` : "0";
   $("seek").setAttribute("aria-valuenow", d ? Math.round(t / d * 100) : 0);
-  updateReels();
   if (playing && current && !current.counted){
     current.heard += 0.5;
     if (current.heard >= LISTEN_SECONDS) logListen();
@@ -157,7 +187,6 @@ window.onYouTubeIframeAPIReady = function(){
         if (current && current.src !== "yt") return;
         if (e.data === YT.PlayerState.PLAYING){
           $("screenOff").hidden = true; setPlaying(true); errorsInARow = 0;
-          // pasted links start without a title, so read it from the video
           if (current && current.song.unknown){
             const v = player.getVideoData();
             if (v && v.title){
@@ -174,7 +203,7 @@ window.onYouTubeIframeAPIReady = function(){
         setPlaying(false);
         errorsInARow++;
         const url = current ? `https://www.youtube.com/watch?v=${current.song.id}` : "https://www.youtube.com";
-        $("nowArtist").innerHTML = `${esc(current ? current.song.a || "" : "")} · <a href="${url}" target="_blank" rel="noopener">Open on YouTube ↗</a>`;
+        $("nowArtist").innerHTML = `${esc(current ? current.song.a || "" : "")} · <a href="${url}" target="_blank" rel="noopener" style="color:inherit">Open on YouTube ↗</a>`;
         if (errorsInARow >= 3){ toast("YouTube is blocking playback here. Try another shelf, or open the song on YouTube."); errorsInARow = 0; return; }
         toast("This video can't play outside YouTube. Skipping it.");
         setTimeout(() => step(1), 1500);
@@ -183,24 +212,42 @@ window.onYouTubeIframeAPIReady = function(){
   });
 };
 
-/* ---------- own files ---------- */
 const audio = $("audio");
-audio.addEventListener("play", () => { if (current && current.src === "file") setPlaying(true); });
+audio.addEventListener("play", () => { if (current && current.src === "file"){ setPlaying(true); $("screenOff").textContent = "playing from your device"; } });
 audio.addEventListener("pause", () => { if (current && current.src === "file") setPlaying(false); });
 audio.addEventListener("ended", () => { setPlaying(false); if (current && current.heard >= 10) logListen(); });
 
-/* ---------- UI: shelves ---------- */
+/* ---------- glass panels ---------- */
+let openPanel = null, lastFocus = null;
+function open(name){
+  close();
+  lastFocus = document.activeElement;
+  openPanel = $("panel-" + name);
+  if (name === "month") renderMonth();
+  $("scrim").hidden = false; openPanel.hidden = false;
+  (openPanel.querySelector("[aria-selected='true'], .x") || openPanel).focus();
+}
+function close(){
+  if (!openPanel) return;
+  openPanel.hidden = true; $("scrim").hidden = true; openPanel = null;
+  if (lastFocus) lastFocus.focus();
+}
+document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => open(b.dataset.open)));
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", close));
+$("scrim").addEventListener("click", close);
+
+/* ---------- shelves ---------- */
 function allShelves(){ return data.links.length ? [...SHELVES, linksShelf()] : SHELVES; }
 function renderTabs(){
   $("tabs").innerHTML = allShelves().map(s => {
-    const c = s.mood ? MOOD[s.mood].color : "var(--muted)";
+    const c = s.mood ? MOOD[s.mood].color : "#fff";
     return `<button class="tab" role="tab" aria-selected="${s.id === shelfId}" data-shelf="${s.id}"><i style="background:${c}"></i>${esc(s.name)}</button>`;
   }).join("");
 }
 function renderSongs(){
   const shelf = shelfById(shelfId);
   if (!shelf){ shelfId = SHELVES[0].id; return renderSongs(); }
-  $("blurb").textContent = shelf.mood ? `${shelf.blurb} Every song here adds a ${MOOD[shelf.mood].label.toLowerCase()} stripe.` : shelf.blurb;
+  $("blurb").textContent = shelf.mood ? `${shelf.blurb} Each song adds a ${MOOD[shelf.mood].label.toLowerCase()} stripe.` : shelf.blurb;
   $("songs").innerHTML = shelf.songs.map((s, i) => {
     const on = queue && queue.shelfId === shelf.id && queue.index === i;
     const c = MOOD[songMood(shelf, s)].color;
@@ -215,11 +262,12 @@ $("tabs").addEventListener("click", e => {
 $("songs").addEventListener("click", e => {
   const b = e.target.closest(".song"); if (!b) return;
   playSong(shelfById(shelfId), +b.dataset.i);
+  close();
 });
 
-/* ---------- UI: bring your own ---------- */
+/* ---------- your music ---------- */
 function moodChips(el, selected, attr){
-  el.innerHTML = MOODS.map(m => `<button class="chip" style="--c:${m.color}" data-${attr}="${m.id}" aria-pressed="${m.id === selected}"><i style="background:${m.color}"></i>${m.label}</button>`).join("");
+  el.innerHTML = MOODS.map(m => `<button class="chip" data-${attr}="${m.id}" aria-pressed="${m.id === selected}"><i style="background:${m.color}"></i>${m.label}</button>`).join("");
 }
 moodChips($("byoMoods"), byoMood, "mood");
 $("byoMoods").addEventListener("click", e => {
@@ -236,11 +284,12 @@ $("linkForm").addEventListener("submit", e => {
   saveData(data);
   $("linkIn").value = "";
   shelfId = "links"; renderTabs();
-  playSong(linksShelf(), i);
+  playSong(linksShelf(), i); close();
 });
-$("fileIn").addEventListener("change", e => { const f = e.target.files[0]; if (f) playFile(f); e.target.value = ""; });
+$("fileIn").addEventListener("change", e => { const f = e.target.files[0]; if (f){ playFile(f); close(); } e.target.value = ""; });
 
-/* ---------- UI: my month ---------- */
+/* ---------- my month ---------- */
+const daysInMonth = d => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 function renderMonth(){
   const now = new Date(), mk = monthKey(now);
   const ls = listensIn(data, mk), cs = checkinsIn(data, mk);
@@ -248,13 +297,9 @@ function renderMonth(){
   const stripes = stripeColors(ls, 120);
   $("stripes").innerHTML = stripes.length ? stripes.map(c => `<i style="background:${c}"></i>`).join("") : `<span class="empty">Your stripes appear here after you listen for 30 seconds.</span>`;
   const counts = moodCounts(ls);
-  if (counts.length){
-    const top = counts[0];
-    $("insight").textContent = `Mostly ${top.label.toLowerCase()} this month: ${top.n} of ${ls.length} songs.`;
-  } else $("insight").textContent = "No songs on this month's tape yet.";
+  $("insight").textContent = counts.length ? `Mostly ${counts[0].label.toLowerCase()} this month: ${counts[0].n} of ${ls.length} songs.` : "No songs on this month's tape yet.";
   $("legend").innerHTML = counts.map(m => `<span><i style="background:${m.color}"></i>${m.label} ${m.n}</span>`).join("");
 
-  // days: the most common mood of each day (a check-in counts as 3 songs)
   const days = daysInMonth(now), first = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
   let cal = "<span style='border:0'></span>".repeat(first);
   for (let d = 1; d <= days; d++){
@@ -262,19 +307,16 @@ function renderMonth(){
     ls.forEach(l => { if (new Date(l.ts).getDate() === d) tally[l.mood] = (tally[l.mood] || 0) + 1; });
     cs.forEach(c => { if (new Date(c.ts).getDate() === d) tally[c.mood] = (tally[c.mood] || 0) + 3; });
     const best = Object.entries(tally).sort((a, b) => b[1] - a[1])[0];
-    const col = best ? MOOD[best[0]].color : "";
-    cal += `<span class="${best ? "has" : ""} ${d === now.getDate() ? "today" : ""}" style="${best ? `background:${col}` : ""}" title="${best ? MOOD[best[0]].label : ""}">${d}</span>`;
+    cal += `<span class="${best ? "has" : ""} ${d === now.getDate() ? "today" : ""}" style="${best ? `background:${MOOD[best[0]].color}` : ""}" title="${best ? MOOD[best[0]].label : ""}">${d}</span>`;
   }
   $("cal").innerHTML = cal;
 
-  const recent = [...data.listens].reverse().slice(0, 8);
+  const recent = [...data.listens].reverse().slice(0, 6);
   $("recent").innerHTML = recent.length ? recent.map(l => {
     const d = new Date(l.ts);
-    return `<li><i style="background:${MOOD[l.mood].color}"></i><span>${esc(l.t)}${l.a ? ` · <span style="color:var(--muted)">${esc(l.a)}</span>` : ""}</span><small>${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)}</small></li>`;
+    return `<li><i style="background:${MOOD[l.mood].color}"></i><span>${esc(l.t)}</span><small>${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)}</small></li>`;
   }).join("") : `<li class="none">Nothing yet. Play anything for 30 seconds.</li>`;
 }
-const daysInMonth = d => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-
 moodChips($("checkin"), null, "check");
 $("checkin").addEventListener("click", e => {
   const b = e.target.closest(".chip"); if (!b) return;
@@ -294,14 +336,15 @@ $("seek").addEventListener("keydown", e => {
   if (e.key === "ArrowLeft"){ e.preventDefault(); seekTo(Math.max(0, (t - 5) / d)); }
 });
 document.addEventListener("keydown", e => {
-  if (e.code === "Space" && !/INPUT|BUTTON|TEXTAREA/.test(document.activeElement.tagName)){ e.preventDefault(); toggle(); }
+  if (e.key === "Escape"){ close(); return; }
+  if (e.code === "Space" && !/INPUT|BUTTON|TEXTAREA|A/.test(document.activeElement.tagName)){ e.preventDefault(); toggle(); }
 });
 
-/* ---------- suggest a song ---------- */
 $("suggestBtn").onclick = () => {
   if (CONFIG.suggestUrl){ window.open(CONFIG.suggestUrl, "_blank", "noopener"); return; }
   location.href = `mailto:${CONFIG.suggestEmail}?subject=${encodeURIComponent("Song suggestion for Mood Tape")}&body=${encodeURIComponent("Song:\nArtist:\nWhich shelf should it go on?\n")}`;
 };
 
 /* ---------- start ---------- */
+document.documentElement.style.setProperty("--tint", DEFAULT_TINT);
 renderTabs(); renderSongs(); drawCassette(); renderMonth();
