@@ -61,8 +61,8 @@ button{cursor:pointer}
 @keyframes spin{to{transform:rotate(-360deg)}}
 
 .tv{position:absolute;right:0;top:50%;transform:translateY(-50%);border-radius:22px;padding:10px}
-.tv-screen{position:relative;width:200px;height:200px;border-radius:14px;overflow:hidden;background:#0B2230}
-.tv-screen iframe,#yt{width:200px;height:200px;display:block}
+.tv-screen{position:relative;width:300px;max-width:calc(100vw - 48px);height:152px;border-radius:14px;overflow:hidden}
+.tv-screen iframe,#sp{width:100%;height:152px;display:block;border:0}
 .tv-off{position:absolute;inset:0;display:grid;place-items:center;font:600 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5);
   background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 2px,transparent 2px 4px),#0B2230;pointer-events:none;text-align:center;padding:12px;line-height:1.6}
 .tv-off a{pointer-events:auto;color:#fff;text-decoration:underline}
@@ -152,7 +152,7 @@ button{cursor:pointer}
   .center{flex-direction:column;gap:8px}
   .tape{flex:1 1 0;min-height:0;height:auto;max-height:none}
   .tv{position:static;transform:none;padding:6px;border-radius:16px;flex:none}
-  .tv-screen{width:200px;height:200px}
+  .tv-screen{width:300px;height:152px}
 }
 @media (max-width:600px){
   .hide-sm{display:none}

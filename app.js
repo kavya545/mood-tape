@@ -1,4 +1,4 @@
-// Mood Tape player: shelves stream ad-free music from Audius, pasted links play through YouTube,
+// Mood Tape player: shelves stream ad-free music from Audius, pasted links play through Spotify's player,
 // and files play straight from your device. Logs the mood of every song you listen to (30 seconds or more).
 
 const $ = id => document.getElementById(id);
@@ -8,10 +8,11 @@ const DEFAULT_TINT = "#3CC6E8";
 
 let shelfId = SHELVES[0].id;     // shelf shown in the tabs
 let queue = null;                // { shelfId, index } for prev/next
-let current = null;              // { src: "yt" | "audio", song: {t, a, id?, aud?, mood}, counted, heard }
+let current = null;              // { src: "sp" | "audio", song: {t, a, sp?, aud?, mood}, counted, heard }
 const AUDIUS = "https://api.audius.co/v1";
 const APP = "MoodTape";
-let player = null, playerReady = false, pendingId = null;
+let SpotifyAPI = null, sp = null, pendingUri = null;   // Spotify embed controller
+let spState = { pos: 0, dur: 0, paused: true };
 let playing = false;
 let byoMood = "happy";
 let errorsInARow = 0;
@@ -23,17 +24,22 @@ const fmt = s => !isFinite(s) || s < 0 ? "0:00" : `${Math.floor(s / 60)}:${pad(M
 let toastT;
 function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
 const shelfById = id => SHELVES.find(s => s.id === id) || (id === "links" ? linksShelf() : null);
-function linksShelf(){ return { id: "links", name: "Your links", mood: null, blurb: "Songs you pasted from YouTube.", songs: data.links }; }
+data.links = data.links.filter(l => l.sp);   // drop old YouTube links from earlier versions
+function linksShelf(){ return { id: "links", name: "Your links", mood: null, blurb: "Songs you pasted from Spotify.", songs: data.links }; }
 function songMood(shelf, song){ return song.mood || shelf.mood; }
-function parseYouTubeId(url){
+// Turns a Spotify link (track, album or playlist) into a Spotify URI like "spotify:track:abc123".
+function parseSpotify(text){
+  const t = text.trim();
+  let m = t.match(/^spotify:(track|album|playlist|episode):([A-Za-z0-9]{10,})$/);
+  if (m) return `spotify:${m[1]}:${m[2]}`;
   try {
-    const u = new URL(url.trim());
-    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1, 12);
-    if (u.searchParams.get("v")) return u.searchParams.get("v").slice(0, 11);
-    const m = u.pathname.match(/\/(embed|shorts|live)\/([A-Za-z0-9_-]{11})/);
-    return m ? m[2] : null;
+    const u = new URL(t);
+    if (!/(^|\.)spotify\.com$/.test(u.hostname)) return null;
+    m = u.pathname.match(/\/(track|album|playlist|episode)\/([A-Za-z0-9]{10,})/);
+    return m ? `spotify:${m[1]}:${m[2]}` : null;
   } catch (e) { return null; }
 }
+const spotifyUrl = uri => { const [, type, id] = uri.split(":"); return `https://open.spotify.com/${type}/${id}`; };
 
 /* ---------- Audius (free, ad-free music) ---------- */
 async function loadShelf(shelf){
@@ -115,7 +121,7 @@ function showNow(){
   if (!current) return;
   const m = MOOD[current.song.mood];
   $("nowTitle").textContent = current.song.t;
-  const via = current.song.aud ? ` · <a href="${esc(current.song.link)}" target="_blank" rel="noopener" style="color:inherit">on Audius ↗</a>` : "";
+  const via = current.song.link ? ` · <a href="${esc(current.song.link)}" target="_blank" rel="noopener" style="color:inherit">on ${current.song.aud ? "Audius" : "Spotify"} ↗</a>` : "";
   $("nowArtist").innerHTML = `${esc(current.song.a || "")}${current.song.a ? " · " : ""}${m.label} stripe${via}`;
   $("moodNow").textContent = `mood: ${m.label.toLowerCase()}`;
   $("masking").textContent = m.label.toLowerCase();
@@ -125,7 +131,7 @@ function showNow(){
   renderSongs();
 }
 
-/* ---------- the little TV (only for pasted YouTube links) ---------- */
+/* ---------- the little player window (only for pasted Spotify links) ---------- */
 function showTV(on){ $("tv").hidden = !on; }
 function tvSay(html){
   const el = $("screenOff");
@@ -135,7 +141,7 @@ function tvSay(html){
 
 /* ---------- playing things ---------- */
 function stopAll(){
-  try { if (player && playerReady) player.stopVideo(); } catch (e) {}
+  try { if (sp) sp.pause(); } catch (e) {}
   $("audio").pause();
 }
 function playSong(shelf, index){
@@ -144,7 +150,7 @@ function playSong(shelf, index){
   queue = { shelfId: shelf.id, index };
   if (song.aud){
     // Audius: plain audio, no video player and no ads
-    try { if (player && playerReady) player.stopVideo(); } catch (e) {}
+    try { if (sp) sp.pause(); } catch (e) {}
     showTV(false);
     current = { src: "audio", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
     showNow();
@@ -152,13 +158,11 @@ function playSong(shelf, index){
     a.play().catch(() => {});
     return;
   }
-  current = { src: "yt", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
+  current = { src: "sp", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
   $("audio").pause();
   showTV(true);
   showNow();
-  tvSay("loading…");
-  if (playerReady) player.loadVideoById(song.id);
-  else { pendingId = song.id; toast("Loading the player…"); }
+  spPlay(song.sp);
 }
 function playFile(file){
   stopAll();
@@ -181,19 +185,17 @@ function step(dir){
 function toggle(){
   if (!current){ const sh = shelfById(shelfId); sh && sh.songs && sh.songs.length ? playSong(sh, 0) : open("shelves"); return; }
   if (current.src === "audio"){ const a = $("audio"); a.paused ? a.play() : a.pause(); return; }
-  if (!playerReady) return;
-  playing ? player.pauseVideo() : player.playVideo();
+  if (sp) sp.togglePlay();
 }
 function times(){
   if (!current) return { t: 0, d: 0 };
   if (current.src === "audio"){ const a = $("audio"); return { t: a.currentTime || 0, d: a.duration || 0 }; }
-  if (!playerReady) return { t: 0, d: 0 };
-  try { return { t: player.getCurrentTime() || 0, d: player.getDuration() || 0 }; } catch (e) { return { t: 0, d: 0 }; }
+  return { t: spState.pos, d: spState.dur };
 }
 function seekTo(frac){
   const { d } = times(); if (!d) return;
   if (current.src === "audio") $("audio").currentTime = frac * d;
-  else player.seekTo(frac * d, true);
+  else if (sp) sp.seek(frac * d);
 }
 
 /* ---------- logging moods ---------- */
@@ -217,42 +219,26 @@ setInterval(() => {
   }
 }, 500);
 
-/* ---------- YouTube ---------- */
-window.onYouTubeIframeAPIReady = function(){
-  player = new YT.Player("yt", {
-    width: 200, height: 200,
-    playerVars: { playsinline: 1, rel: 0 },
-    events: {
-      onReady: () => { playerReady = true; if (pendingId){ player.loadVideoById(pendingId); pendingId = null; } },
-      onStateChange: e => {
-        if (current && current.src !== "yt") return;
-        if (e.data === YT.PlayerState.PLAYING){
-          tvSay(null); setPlaying(true); errorsInARow = 0;
-          if (current && current.song.unknown){
-            const v = player.getVideoData();
-            if (v && v.title){
-              current.song.t = v.title; current.song.a = v.author || ""; delete current.song.unknown;
-              const saved = data.links.find(l => l.id === current.song.id);
-              if (saved){ saved.t = current.song.t; saved.a = current.song.a; delete saved.unknown; saveData(data); }
-              showNow();
-            }
-          }
-        } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.CUED){ setPlaying(false); }
-        else if (e.data === YT.PlayerState.ENDED){ setPlaying(false); if (current && current.heard >= 10) logListen(); step(1); }
-      },
-      onError: () => {
-        setPlaying(false);
-        errorsInARow++;
-        const url = current ? `https://www.youtube.com/watch?v=${current.song.id}` : "https://www.youtube.com";
-        $("nowArtist").innerHTML = `${esc(current ? current.song.a || "" : "")} · <a href="${url}" target="_blank" rel="noopener" style="color:inherit">Open on YouTube ↗</a>`;
-        tvSay(`can't play here<br><a href="${url}" target="_blank" rel="noopener">open on YouTube ↗</a>`);
-        if (errorsInARow >= 3){ toast("YouTube is blocking playback here. Try another shelf, or open the song on YouTube."); errorsInARow = 0; return; }
-        toast("This video can't play outside YouTube. Skipping it.");
-        setTimeout(() => step(1), 1500);
-      }
-    }
+/* ---------- Spotify (official embed player, no ads) ---------- */
+// Spotify plays full songs for people logged in to Spotify in this browser, and 30-second previews for everyone else.
+window.onSpotifyIframeApiReady = API => { SpotifyAPI = API; if (pendingUri){ const u = pendingUri; pendingUri = null; spPlay(u); } };
+function spPlay(uri){
+  spState = { pos: 0, dur: 0, paused: true };
+  if (!SpotifyAPI){ pendingUri = uri; toast("Loading Spotify…"); return; }
+  if (sp){ sp.loadUri(uri); sp.play(); return; }
+  SpotifyAPI.createController($("sp"), { uri, width: "100%", height: 152 }, ctl => {
+    sp = ctl;
+    ctl.addListener("ready", () => ctl.play());
+    ctl.addListener("playback_update", e => {
+      if (!current || current.src !== "sp") return;
+      const { position, duration, isPaused } = e.data;
+      const ended = !isPaused && duration > 0 && position >= duration - 400;
+      spState = { pos: position / 1000, dur: duration / 1000, paused: isPaused };
+      setPlaying(!isPaused && !ended);
+      if (ended && !current.ended){ current.ended = true; if (current.heard >= 10) logListen(); }
+    });
   });
-};
+}
 
 const audio = $("audio");
 audio.addEventListener("play", () => { if (current && current.src === "audio") setPlaying(true); });
@@ -306,7 +292,7 @@ function renderSongs(){
     const on = queue && queue.shelfId === shelf.id && queue.index === i;
     const c = MOOD[songMood(shelf, s)].color;
     return `<li><button class="song ${on ? "on" : ""}" data-i="${i}"><span class="n">${on && playing ? "♪" : pad(i + 1)}</span>
-      <span><b>${esc(s.t)}</b><small>${esc(s.a || "YouTube link")}</small></span><span class="dot" style="background:${c}"></span></button></li>`;
+      <span><b>${esc(s.t)}</b><small>${esc(s.a || "")}</small></span><span class="dot" style="background:${c}"></span></button></li>`;
   }).join("");
 }
 $("tabs").addEventListener("click", e => {
@@ -332,15 +318,22 @@ $("byoMoods").addEventListener("click", e => {
 });
 $("linkForm").addEventListener("submit", e => {
   e.preventDefault();
-  const id = parseYouTubeId($("linkIn").value);
-  if (!id || id.length !== 11){ toast("That doesn't look like a YouTube link. Try copying it again."); return; }
-  let i = data.links.findIndex(l => l.id === id);
-  if (i < 0){ data.links.push({ t: "YouTube link", a: "", id, mood: byoMood, unknown: true }); i = data.links.length - 1; }
+  const uri = parseSpotify($("linkIn").value);
+  if (!uri){ toast("That doesn't look like a Spotify link. In Spotify, tap Share → Copy link."); return; }
+  let i = data.links.findIndex(l => l.sp === uri);
+  if (i < 0){ data.links.push({ t: "Spotify link", a: "", sp: uri, link: spotifyUrl(uri), mood: byoMood }); i = data.links.length - 1; }
   else data.links[i].mood = byoMood;
   saveData(data);
   $("linkIn").value = "";
   shelfId = "links"; renderTabs();
   playSong(linksShelf(), i); close();
+  // fetch the real song name from Spotify
+  fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl(uri))}`).then(r => r.ok ? r.json() : null).then(o => {
+    if (!o || !o.title) return;
+    const l = data.links.find(x => x.sp === uri); if (l){ l.t = o.title; saveData(data); }
+    if (current && current.song.sp === uri){ current.song.t = o.title; showNow(); }
+    renderSongs();
+  }).catch(() => {});
 });
 $("fileIn").addEventListener("change", e => { const f = e.target.files[0]; if (f){ playFile(f); close(); } e.target.value = ""; });
 

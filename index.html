@@ -28,7 +28,7 @@
   <div class="center">
     <div class="tape" id="cassette" role="button" tabindex="0" aria-label="Play or pause the tape"></div>
     <aside class="tv glass" id="tv" hidden>
-      <div class="tv-screen"><div id="yt"></div><div class="tv-off" id="screenOff">no signal</div></div>
+      <div class="tv-screen"><div id="sp"></div><div class="tv-off" id="screenOff" hidden></div></div>
     </aside>
   </div>
 
@@ -79,11 +79,11 @@
 
 <section class="panel glass" id="panel-byo" hidden role="dialog" aria-modal="true" aria-labelledby="byoH">
   <div class="panel-head"><h3 id="byoH">Your music</h3><button class="x" data-close aria-label="Close">×</button></div>
-  <p class="blurb">First pick how it feels. That color goes on your tape. YouTube links play in a small video window and may show YouTube ads.</p>
+  <p class="blurb">First pick how it feels. That color goes on your tape. Spotify plays full songs if you're logged in to Spotify in this browser, and 30-second previews if you're not.</p>
   <div class="chips" id="byoMoods"></div>
   <form class="row" id="linkForm">
-    <label class="sr" for="linkIn">YouTube link</label>
-    <input id="linkIn" type="url" placeholder="Paste any YouTube link" autocomplete="off">
+    <label class="sr" for="linkIn">Spotify link</label>
+    <input id="linkIn" type="url" placeholder="Paste a Spotify song, album or playlist link" autocomplete="off">
     <button class="solid" type="submit">Play link</button>
   </form>
   <div class="row">
@@ -113,13 +113,13 @@
   </div>
 </section>
 
-<p class="warn glass" id="fileWarn" hidden>Opened straight from your computer, so YouTube songs won't play. Use the live site link.</p>
+<p class="warn glass" id="fileWarn" hidden>Opened straight from your computer, so some songs may not play. Use the live site link.</p>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <audio id="audio" preload="metadata"></audio>
 
 <script src="songs.js"></script>
 <script src="shared.js"></script>
 <script src="app.js"></script>
-<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
 </body>
 </html>

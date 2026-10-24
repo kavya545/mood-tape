@@ -16,9 +16,9 @@ Made by Kavya Srivastava.
 
 ## How it works
 - Shelf songs stream free and ad-free from **Audius** (audius.co), an open platform for independent artists. Each shelf loads that genre's top tracks.
-- Pasted YouTube links play in a small video window (YouTube requires it to stay visible). These can show YouTube ads.
+- Pasted Spotify links (song, album or playlist) play in Spotify's official player. No ads. People logged in to Spotify in that browser hear full songs; everyone else hears 30-second previews.
 - A song counts toward your mood after you listen for **30 seconds**. The mood comes from the shelf (genre) it's on.
-- Pasted YouTube links and files from your device use the mood you pick.
+- Pasted Spotify links and files from your device use the mood you pick.
 - Everything is saved in the visitor's own browser (localStorage). No backend, no login. It stays on that device.
 
 ## Change the shelves
@@ -31,7 +31,7 @@ Change them, or copy a line to add a new shelf.
 Until then, the "Suggest a song" button opens an email to you.
 
 ## Run it on your computer
-YouTube won't play if you double-click `index.html`. Run a tiny local server instead:
+Some players won't work if you double-click `index.html`. Run a tiny local server instead:
 - With Python: open a terminal in this folder and run `python3 -m http.server 8000`, then visit http://localhost:8000
 - Or with Node: `npx serve .`
 
