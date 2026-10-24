@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Print your tape · Mood Tape</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  .studio{display:grid;grid-template-columns:300px minmax(0,1fr);gap:24px;align-items:start;padding-block:10px 40px}
+  .panelx{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;position:sticky;top:16px;display:flex;flex-direction:column;gap:16px}
+  .panelx label,.panelx .lab{font-weight:700;font-size:13px;display:block;margin-bottom:6px}
+  .panelx select,.panelx input[type=text]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;color:inherit}
+  .checks{display:flex;flex-direction:column;gap:8px;font-size:14px}
+  .checks label{display:flex;gap:8px;align-items:center;font-weight:600;margin:0}
+  .sheets{display:flex;flex-direction:column;gap:24px;min-width:0}
+  .sheet{background:#fff;color:#1E1E24;border-radius:6px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.12);overflow-x:auto}
+  .sheet h4{font:600 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:#8A8C94;margin:0 0 16px}
+  .cut{border:1.5px dashed #B9BBC2}
+
+  /* 1. cassette label */
+  .cas-wrap{max-width:520px;margin:0 auto}
+  .cas-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin-top:14px;font:400 12px var(--f-mono);color:#55575F}
+  .cas-legend span{display:inline-flex;gap:6px;align-items:center}
+  .cas-legend i{width:10px;height:10px;border-radius:3px}
+
+  /* 2. J-card: real cassette case size, 101.6mm tall */
+  .jcard{display:flex;width:max-content;height:101.6mm;margin:0 auto}
+  .jcard > div{height:100%;border-right:1px dashed #B9BBC2;position:relative;overflow:hidden}
+  .jcard > div:last-child{border-right:0}
+  .j-front{width:65mm;display:flex;flex-direction:column}
+  .j-front .stripes-p{display:flex;height:42mm}
+  .j-front .stripes-p i{flex:1 1 0}
+  .j-front .t{padding:4mm 4mm 0;font-family:var(--f-hand);font-size:17pt;line-height:1}
+  .j-front .s{padding:1mm 4mm;font:400 7pt var(--f-mono);color:#55575F}
+  .j-front ol{margin:1mm 0 0;padding:0 4mm 0 9mm;font-size:7pt;line-height:1.45}
+  .j-spine{width:12.7mm;display:flex;align-items:center;justify-content:center}
+  .j-spine span{transform:rotate(-90deg);white-space:nowrap;font-family:var(--f-hand);font-size:11pt}
+  .j-flap{width:15mm;display:flex;flex-direction:column}
+  .j-flap i{flex:1 1 0}
+  .fold-note{text-align:center;font:400 10px var(--f-mono);color:#8A8C94;margin-top:10px}
+
+  /* 3. receipt */
+  .receipt{width:80mm;margin:0 auto;padding:6mm 5mm;font:400 9pt/1.5 var(--f-mono);background:#fff}
+  .receipt .c{text-align:center}
+  .receipt .big{font-family:var(--f-hand);font-size:18pt;line-height:1.1}
+  .receipt hr{border:0;border-top:1px dashed #8A8C94;margin:3mm 0}
+  .receipt .r{display:flex;justify-content:space-between;gap:4mm}
+  .receipt .r span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .receipt .barcode{height:12mm;margin-top:3mm;background:repeating-linear-gradient(90deg,#1E1E24 0 2px,transparent 2px 4px,#1E1E24 4px 5px,transparent 5px 8px)}
+
+  /* 4. stickers */
+  .stickers{display:grid;grid-template-columns:repeat(3,38mm);gap:6mm;justify-content:center}
+  .sticker{width:38mm;height:38mm;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#1E1E24;border:1.5px dashed rgba(0,0,0,.25);text-align:center}
+  .sticker b{font-family:var(--f-hand);font-size:15pt;font-weight:400;line-height:1}
+  .sticker small{font:600 8pt var(--f-mono);margin-top:2mm}
+
+  @media (max-width:860px){ .studio{grid-template-columns:1fr} .panelx{position:static} }
+  @media print{
+    @page{margin:12mm}
+    body{background:#fff;padding:0}
+    .top,.panelx,footer,.no-print{display:none!important}
+    .studio{display:block;padding:0}
+    .sheet{box-shadow:none;border-radius:0;padding:0;break-after:page;overflow:visible}
+    .sheet:last-child{break-after:auto}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 34 22" aria-hidden="true"><rect x="1" y="1" width="32" height="20" rx="3" fill="currentColor"/><rect x="5" y="4" width="24" height="8" rx="1.5" fill="#FF7AA8"/><circle cx="11" cy="15.5" r="2.5" fill="var(--bg)"/><circle cx="23" cy="15.5" r="2.5" fill="var(--bg)"/></svg>
+    Mood Tape
+  </a>
+  <nav><a href="index.html">← Back to listening</a></nav>
+</header>
+
+<main class="studio">
+  <aside class="panelx">
+    <div><h2>Print studio</h2><p class="hint">Make your month into things you can print, cut and keep.</p></div>
+    <div><label for="pMonth">Month</label><select id="pMonth"></select></div>
+    <div><label for="pName">Name on the tape</label><input type="text" id="pName" maxlength="20" placeholder="Kavya"></div>
+    <div><span class="lab">Label color</span><div class="chips" id="pColor"></div></div>
+    <div><span class="lab">What to print</span>
+      <div class="checks">
+        <label><input type="checkbox" data-sheet="cas" checked> Cassette label</label>
+        <label><input type="checkbox" data-sheet="jcard" checked> J-card (fits a real cassette case)</label>
+        <label><input type="checkbox" data-sheet="receipt" checked> Mood receipt</label>
+        <label><input type="checkbox" data-sheet="stickers" checked> Mood stickers</label>
+      </div>
+    </div>
+    <button class="btn" id="printBtn">Print</button>
+    <p class="hint" id="pHint"></p>
+  </aside>
+  <div class="sheets" id="sheets"></div>
+</main>
+
+<script src="songs.js"></script>
+<script src="shared.js"></script>
+<script src="print.js"></script>
+</body>
+</html>

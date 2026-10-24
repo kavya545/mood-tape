@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mood Tape</title>
+<meta name="description" content="Listen to music and watch your month turn into a cassette of moods.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="#listen">
+    <svg viewBox="0 0 34 22" aria-hidden="true"><rect x="1" y="1" width="32" height="20" rx="3" fill="currentColor"/><rect x="5" y="4" width="24" height="8" rx="1.5" fill="#FF7AA8"/><circle cx="11" cy="15.5" r="2.5" fill="var(--bg)"/><circle cx="23" cy="15.5" r="2.5" fill="var(--bg)"/></svg>
+    Mood Tape
+  </a>
+  <nav>
+    <a href="#month">My month</a>
+    <a href="print.html">Print</a>
+    <button class="link" id="suggestBtn">Suggest a song</button>
+  </nav>
+</header>
+
+<main>
+  <p class="warn" id="fileWarn" hidden>You opened this file straight from your computer, so YouTube songs won't play. Run it from a local server or the live site. See README.md.</p>
+
+  <!-- ===== Stage: one cassette ===== -->
+  <section class="stage" id="listen">
+    <div class="deck">
+      <div class="cassette-holder" id="cassette"></div>
+      <div class="now">
+        <span class="moodtag" id="nowMood"></span>
+        <h1 id="nowTitle">Pick a song</h1>
+        <p id="nowArtist">Choose a shelf below and press play.</p>
+      </div>
+      <div class="progress">
+        <span id="tCur">0:00</span>
+        <div class="bar" id="seek" role="slider" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><i id="fill"></i></div>
+        <span id="tDur">0:00</span>
+      </div>
+      <div class="controls">
+        <button class="ctl" id="prevBtn" aria-label="Previous song"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+        <button class="ctl play" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
+        <button class="ctl" id="nextBtn" aria-label="Next song"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      </div>
+    </div>
+    <aside class="screen">
+      <div class="screen-frame"><div id="yt"></div><div class="screen-off" id="screenOff">no signal</div></div>
+      <p>The YouTube player has to stay visible, so it lives on this little TV.</p>
+    </aside>
+  </section>
+
+  <!-- ===== Shelves ===== -->
+  <section class="shelves">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Music shelves"></div>
+    <p class="blurb" id="blurb"></p>
+    <ol class="songs" id="songs"></ol>
+
+    <div class="byo">
+      <h2>Bring your own music</h2>
+      <div class="byo-mood">
+        <span>This one feels</span>
+        <div class="chips" id="byoMoods"></div>
+      </div>
+      <form class="byo-row" id="linkForm">
+        <label class="sr" for="linkIn">YouTube link</label>
+        <input id="linkIn" type="url" placeholder="Paste any YouTube link" autocomplete="off">
+        <button class="btn" type="submit">Play link</button>
+      </form>
+      <div class="byo-row">
+        <label class="btn ghost" for="fileIn">Play a song from my device</label>
+        <input id="fileIn" type="file" accept="audio/*" class="sr">
+        <span class="hint">The file stays on your device. Nothing is uploaded.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== My month ===== -->
+  <section class="month" id="month">
+    <div class="month-head">
+      <h2 id="monthTitle">My month</h2>
+      <a class="btn" href="print.html">Print my tape</a>
+    </div>
+    <div class="stripes" id="stripes"></div>
+    <p class="insight" id="insight"></p>
+    <div class="legend" id="legend"></div>
+
+    <div class="month-grid">
+      <div>
+        <h3>How do you feel right now?</h3>
+        <p class="hint">Optional. Tap a mood to add it to today.</p>
+        <div class="chips big" id="checkin"></div>
+        <h3 class="mt">Days</h3>
+        <div class="cal" id="cal"></div>
+      </div>
+      <div>
+        <h3>Recently on your tape</h3>
+        <ol class="recent" id="recent"></ol>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>Made by Kavya Srivastava · songs play through YouTube · your moods are saved only in this browser</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<audio id="audio" preload="metadata"></audio>
+
+<script src="songs.js"></script>
+<script src="shared.js"></script>
+<script src="app.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
