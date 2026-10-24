@@ -105,6 +105,13 @@ function showNow(){
   renderSongs();
 }
 
+/* ---------- the little TV's status text ---------- */
+function tvSay(html){
+  const el = $("screenOff");
+  if (html === null){ el.hidden = true; return; }
+  el.innerHTML = html; el.hidden = false;
+}
+
 /* ---------- playing things ---------- */
 function stopAll(){
   try { if (player && playerReady) player.stopVideo(); } catch (e) {}
@@ -117,6 +124,7 @@ function playSong(shelf, index){
   current = { src: "yt", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
   $("audio").pause();
   showNow();
+  tvSay("loading…");
   if (playerReady) player.loadVideoById(song.id);
   else { pendingId = song.id; toast("Loading the player…"); }
 }
@@ -186,7 +194,7 @@ window.onYouTubeIframeAPIReady = function(){
       onStateChange: e => {
         if (current && current.src !== "yt") return;
         if (e.data === YT.PlayerState.PLAYING){
-          $("screenOff").hidden = true; setPlaying(true); errorsInARow = 0;
+          tvSay(null); setPlaying(true); errorsInARow = 0;
           if (current && current.song.unknown){
             const v = player.getVideoData();
             if (v && v.title){
@@ -204,6 +212,7 @@ window.onYouTubeIframeAPIReady = function(){
         errorsInARow++;
         const url = current ? `https://www.youtube.com/watch?v=${current.song.id}` : "https://www.youtube.com";
         $("nowArtist").innerHTML = `${esc(current ? current.song.a || "" : "")} · <a href="${url}" target="_blank" rel="noopener" style="color:inherit">Open on YouTube ↗</a>`;
+        tvSay(`can't play here<br><a href="${url}" target="_blank" rel="noopener">open on YouTube ↗</a>`);
         if (errorsInARow >= 3){ toast("YouTube is blocking playback here. Try another shelf, or open the song on YouTube."); errorsInARow = 0; return; }
         toast("This video can't play outside YouTube. Skipping it.");
         setTimeout(() => step(1), 1500);
@@ -213,7 +222,7 @@ window.onYouTubeIframeAPIReady = function(){
 };
 
 const audio = $("audio");
-audio.addEventListener("play", () => { if (current && current.src === "file"){ setPlaying(true); $("screenOff").textContent = "playing from your device"; } });
+audio.addEventListener("play", () => { if (current && current.src === "file"){ setPlaying(true); tvSay("playing from your device"); } });
 audio.addEventListener("pause", () => { if (current && current.src === "file") setPlaying(false); });
 audio.addEventListener("ended", () => { setPlaying(false); if (current && current.heard >= 10) logListen(); });
 
@@ -326,6 +335,8 @@ $("checkin").addEventListener("click", e => {
 });
 
 /* ---------- controls ---------- */
+$("cassette").addEventListener("click", () => current ? toggle() : open("shelves"));
+$("cassette").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); current ? toggle() : open("shelves"); } });
 $("playBtn").onclick = toggle;
 $("prevBtn").onclick = () => step(-1);
 $("nextBtn").onclick = () => step(1);
