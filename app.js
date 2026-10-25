@@ -1,33 +1,34 @@
-// Mood Tape player: shelves stream ad-free music from Audius, pasted links play through Spotify's player,
-// and files play straight from your device. Logs the mood of every song you listen to (30 seconds or more).
+// Mood Tape: drag a real cassette into the deck to play it.
+// Songs: ad-free Audius shelves, Spotify links, or files from your device.
+// Every song you listen to for 30 seconds adds a mood stripe to your month.
 
 const $ = id => document.getElementById(id);
 const data = loadData();
 const LISTEN_SECONDS = 30;
-const DEFAULT_TINT = "#3CC6E8";
-
-let shelfId = SHELVES[0].id;     // shelf shown in the tabs
-let queue = null;                // { shelfId, index } for prev/next
-let current = null;              // { src: "sp" | "audio", song: {t, a, sp?, aud?, mood}, counted, heard }
+const DEFAULT_MOOD_LIGHT = "#E8DCC4";
 const AUDIUS = "https://api.audius.co/v1";
 const APP = "MoodTape";
-let SpotifyAPI = null, sp = null, pendingUri = null;   // Spotify embed controller
-let spState = { pos: 0, dur: 0, paused: true };
-let playing = false;
-let byoMood = "happy";
-let errorsInARow = 0;
 
+let shelfId = SHELVES[0].id;     // shelf shown in the Shelves panel
+let queue = null;                // { shelfId, index } so rewind / fast-forward can move between songs
+let current = null;              // { src: "audio" | "sp", song, counted, heard }
+let inserted = false, busy = false, playing = false;
+let SpotifyAPI = null, sp = null, pendingUri = null;
+let spState = { pos: 0, dur: 0, paused: true };
+let byoMood = "happy";
+
+const tape = $("tape"), deck = $("deck"), audio = $("audio");
 if (location.protocol === "file:") $("fileWarn").hidden = false;
 
 /* ---------- helpers ---------- */
 const fmt = s => !isFinite(s) || s < 0 ? "0:00" : `${Math.floor(s / 60)}:${pad(Math.floor(s % 60))}`;
 let toastT;
 function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
-const shelfById = id => SHELVES.find(s => s.id === id) || (id === "links" ? linksShelf() : null);
-data.links = data.links.filter(l => l.sp);   // drop old YouTube links from earlier versions
+const wait = ms => new Promise(r => setTimeout(r, ms));
+data.links = data.links.filter(l => l.sp);
 function linksShelf(){ return { id: "links", name: "Your links", mood: null, blurb: "Songs you pasted from Spotify.", songs: data.links }; }
-function songMood(shelf, song){ return song.mood || shelf.mood; }
-// Turns a Spotify link (track, album or playlist) into a Spotify URI like "spotify:track:abc123".
+const shelfById = id => SHELVES.find(s => s.id === id) || (id === "links" ? linksShelf() : null);
+const songMood = (shelf, song) => song.mood || shelf.mood;
 function parseSpotify(text){
   const t = text.trim();
   let m = t.match(/^spotify:(track|album|playlist|episode):([A-Za-z0-9]{10,})$/);
@@ -41,234 +42,310 @@ function parseSpotify(text){
 }
 const spotifyUrl = uri => { const [, type, id] = uri.split(":"); return `https://open.spotify.com/${type}/${id}`; };
 
-/* ---------- Audius (free, ad-free music) ---------- */
+/* ---------- Audius shelves ---------- */
 async function loadShelf(shelf){
-  if (shelf.songs || shelf.loading) return;
-  shelf.loading = true; shelf.failed = false;
-  try {
-    const r = await fetch(`${AUDIUS}/tracks/trending?app_name=${APP}&time=allTime&genre=${encodeURIComponent(shelf.genre)}`);
-    if (!r.ok) throw new Error(r.status);
-    const json = await r.json();
-    shelf.songs = json.data
-      .filter(t => t.is_streamable !== false && !t.stream_conditions && t.duration > 45 && /[a-z]{3}/i.test(t.title))
-      .slice(0, 20)
-      .map(t => ({ t: t.title, a: t.user && t.user.name, aud: t.id, link: t.permalink ? "https://audius.co" + t.permalink : "https://audius.co" }));
-  } catch (e) { shelf.failed = true; }
-  shelf.loading = false;
+  if (shelf.songs || shelf.loading) return shelf.loading;
+  shelf.failed = false;
+  shelf.loading = (async () => {
+    try {
+      const r = await fetch(`${AUDIUS}/tracks/trending?app_name=${APP}&time=allTime&genre=${encodeURIComponent(shelf.genre)}`);
+      if (!r.ok) throw new Error(r.status);
+      const json = await r.json();
+      shelf.songs = json.data
+        .filter(t => t.is_streamable !== false && !t.stream_conditions && t.duration > 45 && /[a-z]{3}/i.test(t.title) && /[aeiou]/i.test(t.title))
+        .slice(0, 20)
+        .map(t => ({ t: t.title, a: t.user && t.user.name, aud: t.id, link: t.permalink ? "https://audius.co" + t.permalink : "https://audius.co" }));
+    } catch (e) { shelf.failed = true; }
+    shelf.loading = null;
+  })();
+  return shelf.loading;
 }
 const streamUrl = id => `${AUDIUS}/tracks/${id}/stream?app_name=${APP}`;
 
-/* ---------- the see-through cassette ---------- */
-function clearCassetteSVG(o){
-  const { title = "", sub = "", ring = "#FF4F6D", stripes = [] } = o;
-  const t = title.length > 26 ? title.slice(0, 25) + "…" : title;
-  const s = sub.length > 44 ? sub.slice(0, 43) + "…" : sub;
-  const bw = 300, w = stripes.length ? bw / stripes.length : bw;
-  const band = stripes.length
-    ? stripes.map((c, i) => `<rect x="${(50 + i * w).toFixed(2)}" y="58" width="${(w + .4).toFixed(2)}" height="6" fill="${c}"/>`).join("")
-    : "";
-  const hub = (cx, k) => `
-    <circle cx="${cx}" cy="128" r="25" fill="none" stroke="${ring}" stroke-width="5"/>
-    <g class="hub hub-${k}">
-      <circle cx="${cx}" cy="128" r="17" fill="#F1F5F8"/>
-      ${[0, 60, 120, 180, 240, 300].map(a => `<rect x="${cx - 2}" y="113" width="4" height="7" rx="1.5" fill="#2A2E36" transform="rotate(${a} ${cx} 128)"/>`).join("")}
-      <circle cx="${cx}" cy="128" r="5" fill="#2A2E36"/>
-    </g>`;
-  const screw = (x, y) => `<circle cx="${x}" cy="${y}" r="6" fill="#3A3F48"/><circle cx="${x - 1.5}" cy="${y - 1.5}" r="2" fill="rgba(255,255,255,.35)"/><path d="M${x - 3.5} ${y} H${x + 3.5}" stroke="#15181D" stroke-width="1.4"/>`;
-  return `<svg viewBox="0 0 400 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cassette: ${esc(title)}">
-  <defs>
-    <linearGradient id="glare" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".18"/></linearGradient>
-  </defs>
-  <rect x="4" y="4" width="392" height="248" rx="14" fill="rgba(235,248,255,.22)" stroke="rgba(255,255,255,.85)" stroke-width="2"/>
-  <rect x="14" y="14" width="372" height="228" rx="10" fill="none" stroke="rgba(255,255,255,.35)"/>
-  <rect x="34" y="20" width="332" height="34" rx="4" fill="rgba(255,255,255,.88)"/>
-  <text x="46" y="43" font-family="'Permanent Marker', cursive" font-size="17" fill="#1C2630">${esc(t)}</text>
-  <text x="354" y="34" text-anchor="end" font-family="'IBM Plex Mono', monospace" font-size="8" font-weight="600" fill="#6B7783">C-60</text>
-  <text x="354" y="47" text-anchor="end" font-family="'IBM Plex Mono', monospace" font-size="8" fill="#6B7783">${esc(s)}</text>
-  ${band}
-  <path d="M44 72 H356 Q366 72 366 82 V176 Q366 186 356 186 H44 Q34 186 34 176 V82 Q34 72 44 72 Z" fill="#1A1D23" opacity=".93"/>
-  <rect x="168" y="104" width="64" height="40" rx="6" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.3)"/>
-  <path d="M172 136 H228" stroke="#5B3D2E" stroke-width="3"/>
-  ${hub(122, "l")}${hub(278, "r")}
-  <path d="M86 252 L106 200 H294 L314 252" fill="rgba(235,248,255,.18)" stroke="rgba(255,255,255,.7)" stroke-width="1.5"/>
-  <circle cx="134" cy="228" r="7" fill="rgba(20,30,40,.55)"/><circle cx="266" cy="228" r="7" fill="rgba(20,30,40,.55)"/>
-  <rect x="176" y="218" width="14" height="12" rx="2" fill="rgba(20,30,40,.55)"/><rect x="210" y="218" width="14" height="12" rx="2" fill="rgba(20,30,40,.55)"/>
-  ${screw(22, 22)}${screw(378, 22)}${screw(22, 234)}${screw(378, 234)}${screw(200, 196)}
-  <rect x="4" y="4" width="392" height="248" rx="14" fill="url(#glare)" pointer-events="none"/>
-</svg>`;
+/* ---------- layout: where the tape sits ---------- */
+function place(){
+  const st = $("stage").getBoundingClientRect();
+  let left, top, w;
+  if (inserted){
+    const s = $("slot").getBoundingClientRect();
+    w = Math.min(s.width * .94, s.height * .94 * 1098 / 700);
+    left = s.left - st.left + (s.width - w) / 2;
+    top = s.top - st.top + (s.height - w * 700 / 1098) / 2;
+  } else {
+    const a = $("anchor").getBoundingClientRect();
+    w = Math.max(120, Math.min(420, a.width * .82, a.height * .8 * 1098 / 700));
+    left = a.left - st.left + (a.width - w) / 2;
+    top = a.top - st.top + (a.height - w * 700 / 1098) / 2;
+  }
+  tape.style.width = w + "px"; tape.style.left = left + "px"; tape.style.top = top + "px";
+  const s = $("slot"), d = $("door");
+  Object.assign(d.style, { left: s.offsetLeft + "px", top: s.offsetTop + "px", width: s.offsetWidth + "px", height: s.offsetHeight + "px" });
 }
+addEventListener("resize", place);
 
-function drawCassette(){
-  const mood = current ? MOOD[current.song.mood] : null;
-  const box = $("cassette");
-  box.innerHTML = clearCassetteSVG({
-    title: current ? current.song.t : "Mood Tape",
-    sub: current ? (current.song.a || "") : "side A",
-    ring: mood ? mood.color : "#FF4F6D",
-    stripes: stripeColors(listensIn(data, monthKey(new Date())))
-  });
-  box.classList.toggle("playing", playing);
+/* ---------- the label, caption and mood light ---------- */
+function writeLabel(text){
+  const ink = $("ink");
+  ink.classList.add("wiping");
+  setTimeout(() => { ink.textContent = text.toLowerCase(); ink.classList.remove("wiping"); }, 260);
 }
-function setPlaying(on){
-  playing = on;
-  $("cassette").classList.toggle("playing", on);
-  $("playIcon").innerHTML = on ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>';
-  $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
-}
-
-/* ---------- now playing ---------- */
 function showNow(){
   if (!current) return;
-  const m = MOOD[current.song.mood];
-  $("nowTitle").textContent = current.song.t;
-  const via = current.song.link ? ` · <a href="${esc(current.song.link)}" target="_blank" rel="noopener" style="color:inherit">on ${current.song.aud ? "Audius" : "Spotify"} ↗</a>` : "";
-  $("nowArtist").innerHTML = `${esc(current.song.a || "")}${current.song.a ? " · " : ""}${m.label} stripe${via}`;
-  $("moodNow").textContent = `mood: ${m.label.toLowerCase()}`;
-  $("masking").textContent = m.label.toLowerCase();
-  document.documentElement.style.setProperty("--tint", m.color);
-  document.title = `${current.song.t} · Mood Tape`;
-  drawCassette();
+  const m = MOOD[current.song.mood], s = current.song;
+  document.documentElement.style.setProperty("--mood", m.color);
+  document.body.classList.add("has-song");
+  writeLabel(s.t);
+  $("nowTitle").textContent = s.t;
+  const via = s.link ? ` · <a href="${esc(s.link)}" target="_blank" rel="noopener">on ${s.aud ? "Audius" : "Spotify"} ↗</a>` : "";
+  $("nowArtist").innerHTML = `${esc(s.a || "")}${via}`;
+  $("moodLine").innerHTML = `<i></i>${m.label}`;
+  $("bigTitle").textContent = s.t;
+  $("bigArtist").textContent = s.a || "";
+  $("bigMeta").textContent = `Now playing · ${m.label} · side A`;
+  document.title = `${s.t} · Mood Tape`;
   renderSongs();
 }
 
-/* ---------- the little player window (only for pasted Spotify links) ---------- */
-function showTV(on){ $("tv").hidden = !on; }
-function tvSay(html){
-  const el = $("screenOff");
-  if (html === null){ el.hidden = true; return; }
-  el.innerHTML = html; el.hidden = false;
+/* ---------- loading a song onto the tape (doesn't play until it's in the deck) ---------- */
+function setSong(song, mood, q){
+  stopAll();
+  queue = q || null;
+  current = { src: song.sp ? "sp" : "audio", song: { ...song, mood }, counted: false, heard: 0 };
+  $("tv").hidden = current.src !== "sp";
+  if (current.src === "audio") audio.src = song.aud ? streamUrl(song.aud) : song.file;
+  showNow();
+}
+function stopAll(){ try { if (sp) sp.pause(); } catch (e) {} audio.pause(); }
+function start(){
+  if (!current || !inserted) return;
+  if (current.src === "audio"){ SFX.attach(audio); audio.play().catch(() => toast("Tap play on the deck to start.")); }
+  else spPlay(current.song.sp);
+}
+async function pickDefault(){
+  const shelf = SHELVES[0];
+  await loadShelf(shelf);
+  if (shelf.songs && shelf.songs.length) setSong(shelf.songs[0], shelf.mood, { shelfId: shelf.id, index: 0 });
+}
+// choosing a song while a tape is playing: pop the old one out, write the new label, slide it back in
+async function choose(song, mood, q){
+  if (inserted){ eject(); await wait(650); }
+  setSong(song, mood, q);
+  await wait(950);
+  insert();
 }
 
-/* ---------- playing things ---------- */
-function stopAll(){
-  try { if (sp) sp.pause(); } catch (e) {}
-  $("audio").pause();
+/* ---------- the moment: insert + eject ---------- */
+async function insert(){
+  if (inserted || busy) return;
+  busy = true;
+  if (!current){ $("nowArtist").textContent = "Finding a song…"; await pickDefault(); }
+  if (!current){ busy = false; toast("Couldn't reach the music library. Try Your music instead."); return; }
+  inserted = true;
+  tape.classList.remove("out"); tape.classList.add("in");
+  tape.style.translate = "0px 0px";
+  document.body.classList.add("inserted");
+  place();
+  await wait(540);
+  SFX.clunk();
+  deck.classList.remove("shake"); void deck.offsetWidth; deck.classList.add("shake");
+  await wait(360);
+  busy = false;
+  start();
 }
-function playSong(shelf, index){
-  const song = shelf.songs[index];
-  if (!song) return;
-  queue = { shelfId: shelf.id, index };
-  if (song.aud){
-    // Audius: plain audio, no video player and no ads
-    try { if (sp) sp.pause(); } catch (e) {}
-    showTV(false);
-    current = { src: "audio", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
-    showNow();
-    const a = $("audio"); a.src = streamUrl(song.aud);
-    a.play().catch(() => {});
-    return;
-  }
-  current = { src: "sp", song: { ...song, mood: songMood(shelf, song) }, counted: false, heard: 0 };
-  $("audio").pause();
-  showTV(true);
-  showNow();
-  spPlay(song.sp);
-}
-function playFile(file){
+function eject(){
+  if (!inserted || busy) return;
   stopAll();
-  const a = $("audio");
-  if (a.dataset.url) URL.revokeObjectURL(a.dataset.url);
-  const url = URL.createObjectURL(file);
-  a.dataset.url = url; a.src = url;
-  queue = null;
-  showTV(false);
-  current = { src: "audio", song: { t: file.name.replace(/\.[^.]+$/, ""), a: "From your device", mood: byoMood }, counted: false, heard: 0 };
-  showNow();
-  a.play().catch(() => toast("This file type can't play here. Try an MP3."));
-}
-function step(dir){
-  if (!queue) return;
-  const shelf = shelfById(queue.shelfId);
-  if (!shelf || !shelf.songs.length) return;
-  playSong(shelf, (queue.index + dir + shelf.songs.length) % shelf.songs.length);
+  SFX.eject();
+  inserted = false;
+  document.body.classList.remove("inserted");
+  tape.classList.remove("in"); tape.classList.add("out", "pop");
+  place();
+  setTimeout(() => tape.classList.remove("pop"), 520);
 }
 function toggle(){
-  if (!current){ const sh = shelfById(shelfId); sh && sh.songs && sh.songs.length ? playSong(sh, 0) : open("shelves"); return; }
-  if (current.src === "audio"){ const a = $("audio"); a.paused ? a.play() : a.pause(); return; }
-  if (sp) sp.togglePlay();
+  if (!inserted){ toast("Put the tape in first"); deck.classList.remove("shake"); void deck.offsetWidth; deck.classList.add("shake"); return; }
+  if (current.src === "audio"){ audio.paused ? (SFX.attach(audio), audio.play()) : audio.pause(); }
+  else if (sp) sp.togglePlay();
 }
-function times(){
-  if (!current) return { t: 0, d: 0 };
-  if (current.src === "audio"){ const a = $("audio"); return { t: a.currentTime || 0, d: a.duration || 0 }; }
-  return { t: spState.pos, d: spState.dur };
-}
-function seekTo(frac){
-  const { d } = times(); if (!d) return;
-  if (current.src === "audio") $("audio").currentTime = frac * d;
-  else if (sp) sp.seek(frac * d);
-}
-
-/* ---------- logging moods ---------- */
-function logListen(){
-  if (!current || current.counted) return;
-  current.counted = true;
-  data.listens.push({ ts: Date.now(), mood: current.song.mood, t: current.song.t, a: current.song.a || "" });
-  saveData(data);
-  toast(`Added a ${MOOD[current.song.mood].label.toLowerCase()} stripe to your tape`);
-  drawCassette(); renderMonth();
+// rewind / fast-forward: whirr, spin the reels fast, then the next song
+let wind = 0, windDir = 1;
+async function step(dir){
+  if (!queue || busy) return;
+  const shelf = shelfById(queue.shelfId);
+  if (!shelf || !shelf.songs || !shelf.songs.length) return;
+  busy = true;
+  SFX.whirr(.65); wind = .65; windDir = dir;
+  const i = (queue.index + dir + shelf.songs.length) % shelf.songs.length;
+  stopAll();
+  await wait(650);
+  setSong(shelf.songs[i], songMood(shelf, shelf.songs[i]), { shelfId: shelf.id, index: i });
+  busy = false;
+  start();
 }
 
-setInterval(() => {
-  const { t, d } = times();
-  $("tCur").textContent = fmt(t); $("tDur").textContent = fmt(d);
-  $("fill").style.width = d ? `${Math.min(100, t / d * 100)}%` : "0";
-  $("seek").setAttribute("aria-valuenow", d ? Math.round(t / d * 100) : 0);
-  if (playing && current && !current.counted){
-    current.heard += 0.5;
-    if (current.heard >= LISTEN_SECONDS) logListen();
-  }
-}, 500);
+/* ---------- dragging the tape ---------- */
+let drag = null;
+function overSlot(){
+  const t = tape.getBoundingClientRect(), s = $("slot").getBoundingClientRect();
+  const cx = t.left + t.width / 2, cy = t.top + t.height / 2;
+  return cx > s.left - 40 && cx < s.right + 40 && cy > s.top - 60 && cy < s.bottom + 40;
+}
+tape.addEventListener("pointerdown", e => {
+  SFX.unlock();
+  if (inserted || busy) return;
+  drag = { x: e.clientX, y: e.clientY, moved: false };
+  tape.setPointerCapture(e.pointerId);
+  tape.classList.add("dragging");
+});
+tape.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.hypot(dx, dy) > 6) drag.moved = true;
+  tape.style.translate = `${dx}px ${dy}px`;
+  deck.classList.toggle("ready", overSlot());
+});
+function endDrag(){
+  if (!drag) return;
+  const moved = drag.moved, over = overSlot();
+  drag = null;
+  tape.classList.remove("dragging");
+  deck.classList.remove("ready");
+  if (!moved || over) insert();
+  else { tape.style.translate = "0px 0px"; SFX.key(); }
+}
+tape.addEventListener("pointerup", endDrag);
+tape.addEventListener("pointercancel", endDrag);
+tape.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); e.stopPropagation(); inserted ? toggle() : insert(); } });
+tape.addEventListener("click", () => { if (inserted && !busy) toggle(); });
 
-/* ---------- Spotify (official embed player, no ads) ---------- */
-// Spotify plays full songs for people logged in to Spotify in this browser, and 30-second previews for everyone else.
+/* ---------- reels, spotlight and VU meter react to the music ---------- */
+const VU_N = 12;
+$("vu").innerHTML = Array.from({ length: VU_N }, () => "<i></i>").join("");
+const vuEls = [...$("vu").children];
+let angL = 0, angR = 0, lastT = performance.now();
+function fakeLevels(t){   // Spotify won't share its audio, so its reels follow a gentle made-up pulse
+  const s = t / 1000;
+  return { bass: .3 + .3 * Math.max(0, Math.sin(s * Math.PI * 3.6)) ** 6, all: .35 + .15 * Math.sin(s * 5.3) * Math.sin(s * 1.7) };
+}
+function frame(t){
+  const dt = Math.min(.05, (t - lastT) / 1000); lastT = t;
+  let lv = { bass: 0, all: 0 };
+  if (playing) lv = current && current.src === "audio" ? SFX.levels() : fakeLevels(t);
+  let speed = playing ? 2.4 * (1 + lv.bass * .7) : 0;
+  if (wind > 0){ speed = 26 * windDir; wind -= dt; }
+  angL -= speed * dt; angR -= speed * dt * .93;
+  $("hubL").style.transform = `rotate(${angL}rad)`;
+  $("hubR").style.transform = `rotate(${angR}rad)`;
+  document.documentElement.style.setProperty("--spot", (inserted ? .55 : 1) + lv.bass * .6);
+  const n = Math.min(VU_N, Math.round(lv.all * 2.2 * VU_N));
+  vuEls.forEach((el, i) => { el.className = i < n ? (i >= VU_N - 2 ? "on peak" : i >= VU_N - 5 ? "on hot" : "on") : ""; });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function setPlaying(on){
+  playing = on;
+  document.body.classList.toggle("playing", on);
+  $("playIcon").innerHTML = on ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+  $("playBtn").setAttribute("aria-label", on ? "Pause" : "Play");
+  on ? SFX.hissOn() : SFX.hissOff();
+  renderSongs();
+}
+
+/* ---------- audio element ---------- */
+audio.addEventListener("play", () => { if (current && current.src === "audio") setPlaying(true); });
+audio.addEventListener("pause", () => { if (current && current.src === "audio") setPlaying(false); });
+audio.addEventListener("ended", () => { setPlaying(false); if (current && current.heard >= 10) logListen(); step(1); });
+audio.addEventListener("error", () => {
+  if (!current || current.src !== "audio" || !audio.getAttribute("src") || !inserted) return;
+  setPlaying(false);
+  if (current.song.aud){ toast("This song didn't load. Skipping it."); setTimeout(() => step(1), 900); }
+  else toast("This file type can't play here. Try an MP3.");
+});
+
+/* ---------- Spotify ---------- */
 window.onSpotifyIframeApiReady = API => { SpotifyAPI = API; if (pendingUri){ const u = pendingUri; pendingUri = null; spPlay(u); } };
 function spPlay(uri){
   spState = { pos: 0, dur: 0, paused: true };
   if (!SpotifyAPI){ pendingUri = uri; toast("Loading Spotify…"); return; }
   if (sp){ sp.loadUri(uri); sp.play(); return; }
-  SpotifyAPI.createController($("sp"), { uri, width: "100%", height: 152 }, ctl => {
+  SpotifyAPI.createController($("sp"), { uri, width: "100%", height: 80 }, ctl => {
     sp = ctl;
-    ctl.addListener("ready", () => ctl.play());
+    ctl.addListener("ready", () => { if (inserted) ctl.play(); });
     ctl.addListener("playback_update", e => {
       if (!current || current.src !== "sp") return;
       const { position, duration, isPaused } = e.data;
       const ended = !isPaused && duration > 0 && position >= duration - 400;
       spState = { pos: position / 1000, dur: duration / 1000, paused: isPaused };
-      setPlaying(!isPaused && !ended);
+      if (playing !== (!isPaused && !ended)) setPlaying(!isPaused && !ended);
       if (ended && !current.ended){ current.ended = true; if (current.heard >= 10) logListen(); }
     });
   });
 }
 
-const audio = $("audio");
-audio.addEventListener("play", () => { if (current && current.src === "audio") setPlaying(true); });
-audio.addEventListener("pause", () => { if (current && current.src === "audio") setPlaying(false); });
-audio.addEventListener("ended", () => { setPlaying(false); if (current && current.heard >= 10) logListen(); if (current && current.song.aud) step(1); });
-audio.addEventListener("error", () => {
-  if (!current || current.src !== "audio" || !audio.getAttribute("src")) return;
-  setPlaying(false);
-  if (current.song.aud){ toast("This song didn't load. Skipping it."); setTimeout(() => step(1), 1200); }
-  else toast("This file type can't play here. Try an MP3.");
+/* ---------- time, progress and the 30-second listen ---------- */
+function times(){
+  if (!current) return { t: 0, d: 0 };
+  if (current.src === "audio") return { t: audio.currentTime || 0, d: audio.duration || 0 };
+  return { t: spState.pos, d: spState.dur };
+}
+function logListen(){
+  if (!current || current.counted) return;
+  current.counted = true;
+  data.listens.push({ ts: Date.now(), mood: current.song.mood, t: current.song.t, a: current.song.a || "" });
+  saveData(data);
+  toast(`A ${MOOD[current.song.mood].label.toLowerCase()} stripe was added to your month`);
+  renderMonth();
+}
+setInterval(() => {
+  const { t, d } = times();
+  $("tCur").textContent = fmt(t); $("tDur").textContent = fmt(d);
+  $("fill").style.width = d ? `${Math.min(100, t / d * 100)}%` : "0";
+  if (playing && current && !current.counted){
+    current.heard += .5;
+    if (current.heard >= LISTEN_SECONDS) logListen();
+  }
+}, 500);
+
+/* ---------- deck keys ---------- */
+const press = (id, fn) => $(id).addEventListener("click", () => { SFX.key(); fn(); });
+press("playBtn", toggle);
+press("ejectBtn", () => inserted ? eject() : insert());
+press("rewBtn", () => step(-1));
+press("ffBtn", () => step(1));
+document.addEventListener("pointerdown", () => SFX.unlock(), { capture: true });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape"){ closePanel(); return; }
+  if (/INPUT|TEXTAREA/.test(document.activeElement.tagName) || openPanel) return;
+  if (e.code === "Space" && !/BUTTON|A/.test(document.activeElement.tagName)){ e.preventDefault(); inserted ? toggle() : insert(); }
+  if (e.key === "e") inserted ? eject() : insert();
+});
+$("soundBtn").addEventListener("click", () => {
+  SFX.setMuted(!SFX.muted);
+  $("soundBtn").textContent = SFX.muted ? "Sound off" : "Sound on";
+  $("soundBtn").setAttribute("aria-pressed", String(!SFX.muted));
+  if (!SFX.muted && playing) SFX.hissOn();
 });
 
-/* ---------- glass panels ---------- */
+/* ---------- panels ---------- */
 let openPanel = null, lastFocus = null;
-function open(name){
-  close();
+function openP(name){
+  closePanel();
   lastFocus = document.activeElement;
   openPanel = $("panel-" + name);
   if (name === "month") renderMonth();
+  if (name === "shelves") renderSongs();
   $("scrim").hidden = false; openPanel.hidden = false;
   (openPanel.querySelector("[aria-selected='true'], .x") || openPanel).focus();
 }
-function close(){
+function closePanel(){
   if (!openPanel) return;
   openPanel.hidden = true; $("scrim").hidden = true; openPanel = null;
   if (lastFocus) lastFocus.focus();
 }
-document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => open(b.dataset.open)));
-document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", close));
-$("scrim").addEventListener("click", close);
+document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openP(b.dataset.open)));
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closePanel));
+$("scrim").addEventListener("click", closePanel);
 
 /* ---------- shelves ---------- */
 function allShelves(){ return data.links.length ? [...SHELVES, linksShelf()] : SHELVES; }
@@ -284,27 +361,27 @@ function renderSongs(){
   if (shelf.genre && !shelf.songs){
     $("blurb").textContent = shelf.blurb;
     $("songs").innerHTML = `<li class="note">${shelf.failed ? "Couldn't reach the music library. Check your internet and tap the shelf again." : "Tuning in…"}</li>`;
-    if (!shelf.loading){ loadShelf(shelf).then(() => { if (shelfId === shelf.id) renderSongs(); }); }
+    if (!shelf.loading && !shelf.failed) loadShelf(shelf).then(() => { if (shelfId === shelf.id) renderSongs(); });
     return;
   }
   $("blurb").textContent = shelf.mood ? `${shelf.blurb} Each song adds a ${MOOD[shelf.mood].label.toLowerCase()} stripe.` : shelf.blurb;
   $("songs").innerHTML = shelf.songs.map((s, i) => {
     const on = queue && queue.shelfId === shelf.id && queue.index === i;
-    const c = MOOD[songMood(shelf, s)].color;
-    return `<li><button class="song ${on ? "on" : ""}" data-i="${i}"><span class="n">${on && playing ? "♪" : pad(i + 1)}</span>
-      <span><b>${esc(s.t)}</b><small>${esc(s.a || "")}</small></span><span class="dot" style="background:${c}"></span></button></li>`;
+    return `<li><button class="song ${on ? "on" : ""}" data-i="${i}"><span class="n">${on && playing ? "▶" : pad(i + 1)}</span>
+      <span><b>${esc(s.t)}</b><small>${esc(s.a || "")}</small></span><span class="dot" style="background:${MOOD[songMood(shelf, s)].color}"></span></button></li>`;
   }).join("");
 }
 $("tabs").addEventListener("click", e => {
   const b = e.target.closest(".tab"); if (!b) return;
   shelfId = b.dataset.shelf;
-  const sh = shelfById(shelfId); if (sh && sh.failed){ sh.failed = false; }
+  const sh = shelfById(shelfId); if (sh) sh.failed = false;
   renderTabs(); renderSongs();
 });
 $("songs").addEventListener("click", e => {
   const b = e.target.closest(".song"); if (!b) return;
-  playSong(shelfById(shelfId), +b.dataset.i);
-  close();
+  const shelf = shelfById(shelfId), i = +b.dataset.i;
+  closePanel();
+  choose(shelf.songs[i], songMood(shelf, shelf.songs[i]), { shelfId: shelf.id, index: i });
 });
 
 /* ---------- your music ---------- */
@@ -321,21 +398,26 @@ $("linkForm").addEventListener("submit", e => {
   const uri = parseSpotify($("linkIn").value);
   if (!uri){ toast("That doesn't look like a Spotify link. In Spotify, tap Share → Copy link."); return; }
   let i = data.links.findIndex(l => l.sp === uri);
-  if (i < 0){ data.links.push({ t: "Spotify link", a: "", sp: uri, link: spotifyUrl(uri), mood: byoMood }); i = data.links.length - 1; }
+  if (i < 0){ data.links.push({ t: "Spotify song", a: "", sp: uri, link: spotifyUrl(uri), mood: byoMood }); i = data.links.length - 1; }
   else data.links[i].mood = byoMood;
   saveData(data);
   $("linkIn").value = "";
-  shelfId = "links"; renderTabs();
-  playSong(linksShelf(), i); close();
-  // fetch the real song name from Spotify
+  shelfId = "links"; renderTabs(); closePanel();
+  choose(data.links[i], byoMood, { shelfId: "links", index: i });
   fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl(uri))}`).then(r => r.ok ? r.json() : null).then(o => {
     if (!o || !o.title) return;
     const l = data.links.find(x => x.sp === uri); if (l){ l.t = o.title; saveData(data); }
     if (current && current.song.sp === uri){ current.song.t = o.title; showNow(); }
-    renderSongs();
   }).catch(() => {});
 });
-$("fileIn").addEventListener("change", e => { const f = e.target.files[0]; if (f){ playFile(f); close(); } e.target.value = ""; });
+$("fileIn").addEventListener("change", e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  if (audio.dataset.url) URL.revokeObjectURL(audio.dataset.url);
+  const url = URL.createObjectURL(f); audio.dataset.url = url;
+  closePanel();
+  choose({ t: f.name.replace(/\.[^.]+$/, ""), a: "From your device", file: url }, byoMood, null);
+});
 
 /* ---------- my month ---------- */
 const daysInMonth = d => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -348,7 +430,6 @@ function renderMonth(){
   const counts = moodCounts(ls);
   $("insight").textContent = counts.length ? `Mostly ${counts[0].label.toLowerCase()} this month: ${counts[0].n} of ${ls.length} songs.` : "No songs on this month's tape yet.";
   $("legend").innerHTML = counts.map(m => `<span><i style="background:${m.color}"></i>${m.label} ${m.n}</span>`).join("");
-
   const days = daysInMonth(now), first = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
   let cal = "<span style='border:0'></span>".repeat(first);
   for (let d = 1; d <= days; d++){
@@ -356,10 +437,9 @@ function renderMonth(){
     ls.forEach(l => { if (new Date(l.ts).getDate() === d) tally[l.mood] = (tally[l.mood] || 0) + 1; });
     cs.forEach(c => { if (new Date(c.ts).getDate() === d) tally[c.mood] = (tally[c.mood] || 0) + 3; });
     const best = Object.entries(tally).sort((a, b) => b[1] - a[1])[0];
-    cal += `<span class="${best ? "has" : ""} ${d === now.getDate() ? "today" : ""}" style="${best ? `background:${MOOD[best[0]].color}` : ""}" title="${best ? MOOD[best[0]].label : ""}">${d}</span>`;
+    cal += `<span class="${best ? "has" : ""} ${d === now.getDate() ? "today" : ""}" style="${best ? `background:${MOOD[best[0]].color}` : ""}">${d}</span>`;
   }
   $("cal").innerHTML = cal;
-
   const recent = [...data.listens].reverse().slice(0, 6);
   $("recent").innerHTML = recent.length ? recent.map(l => {
     const d = new Date(l.ts);
@@ -374,28 +454,10 @@ $("checkin").addEventListener("click", e => {
   toast(`Noted: feeling ${MOOD[b.dataset.check].label.toLowerCase()} today`);
 });
 
-/* ---------- controls ---------- */
-$("cassette").addEventListener("click", () => current ? toggle() : open("shelves"));
-$("cassette").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); current ? toggle() : open("shelves"); } });
-$("playBtn").onclick = toggle;
-$("prevBtn").onclick = () => step(-1);
-$("nextBtn").onclick = () => step(1);
-$("seek").addEventListener("click", e => { const r = e.currentTarget.getBoundingClientRect(); seekTo((e.clientX - r.left) / r.width); });
-$("seek").addEventListener("keydown", e => {
-  const { t, d } = times(); if (!d) return;
-  if (e.key === "ArrowRight"){ e.preventDefault(); seekTo(Math.min(1, (t + 5) / d)); }
-  if (e.key === "ArrowLeft"){ e.preventDefault(); seekTo(Math.max(0, (t - 5) / d)); }
-});
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape"){ close(); return; }
-  if (e.code === "Space" && !/INPUT|BUTTON|TEXTAREA|A/.test(document.activeElement.tagName)){ e.preventDefault(); toggle(); }
-});
-
-$("suggestBtn").onclick = () => {
-  if (CONFIG.suggestUrl){ window.open(CONFIG.suggestUrl, "_blank", "noopener"); return; }
-  location.href = `mailto:${CONFIG.suggestEmail}?subject=${encodeURIComponent("Song suggestion for Mood Tape")}&body=${encodeURIComponent("Song:\nArtist:\nWhich shelf should it go on?\n")}`;
-};
-
 /* ---------- start ---------- */
-document.documentElement.style.setProperty("--tint", DEFAULT_TINT);
-renderTabs(); renderSongs(); drawCassette(); renderMonth();
+document.documentElement.style.setProperty("--mood", DEFAULT_MOOD_LIGHT);
+renderTabs(); renderMonth();
+place();
+requestAnimationFrame(place);
+document.fonts && document.fonts.ready.then(place);
+loadShelf(SHELVES[0]);   // so the first tape is ready the moment you insert it

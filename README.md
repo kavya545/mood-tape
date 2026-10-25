@@ -6,8 +6,10 @@ Made by Kavya Srivastava.
 ## What's in the folder
 | File | What it does |
 |---|---|
-| `index.html` | The landing page and player: one screen, no scrolling. Shelves, Your music and My month open as glass panels |
 | `poster.css` | Styling for the landing page (the grainy blue poster look) |
+| `index.html` + `tape.css` | The main page: a real cassette you drag into a deck. One screen, no scrolling |
+| `sound.js` | All sound effects (clunk, eject, keys, rewind whirr, tape hiss), synthesized in the browser. No audio files |
+| `assets/` | The cassette photo and the two hub cut-outs that spin |
 | `style.css` | Styling for the print studio |
 | `songs.js` | **The music library.** Moods, shelves and songs. Edit this to add songs |
 | `shared.js` | Saving data and drawing the cassette (used by both pages). Your suggestion-form link goes here |
@@ -46,3 +48,8 @@ Some players won't work if you double-click `index.html`. Run a tiny local serve
 ## Printing
 Open the print studio (Print in the top bar), pick the month and your name, then press Print.
 For the J-card to fit a real cassette case, print at 100% scale (turn off "fit to page").
+
+## The cassette photo
+`assets/cassette.jpg` and the hub cut-outs come from a reference photo Kavya supplied.
+Before publishing widely, confirm the photo's license (for example the Unsplash page it came from) and credit the photographer here,
+or replace it with your own photo of a cassette shot from directly above.

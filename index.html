@@ -4,97 +4,98 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mood Tape</title>
-<meta name="description" content="Listen to music and watch your month turn into a cassette of moods.">
+<meta name="description" content="Put a tape in. Every song you play adds a mood stripe to your month.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&display=swap">
-<link rel="stylesheet" href="poster.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reenie+Beanie&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="preload" as="image" href="assets/cassette.jpg">
+<link rel="stylesheet" href="tape.css">
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
 
-<div class="poster">
-  <header class="bar">
-    <span class="tiny">MOOD TAPE · VOL. 01</span>
-    <div class="glass-row">
-      <button class="glass pill" data-open="month">My month</button>
-      <a class="glass pill" href="print.html">Print</a>
-      <button class="glass pill hide-sm" id="suggestBtn">Suggest a song</button>
-    </div>
+<div class="page">
+  <header class="top">
+    <div class="mark">MOOD TAPE<br><span>A monthly listening study</span></div>
+    <nav class="menu">
+      <button data-open="shelves">Shelves</button>
+      <button data-open="byo">Your music</button>
+      <button data-open="month">My month</button>
+      <a href="print.html">Print</a>
+    </nav>
   </header>
 
-  <h1 class="title">MOOD TAPE</h1>
+  <main class="stage" id="stage">
+    <div class="spot" aria-hidden="true"></div>
+    <div class="anchor" id="anchor"><div class="pool" aria-hidden="true"></div><div class="big" aria-hidden="true"><small id="bigMeta">Now playing · side A</small><strong id="bigTitle"></strong><span id="bigArtist"></span></div></div>
 
-  <div class="center">
-    <div class="tape" id="cassette" role="button" tabindex="0" aria-label="Play or pause the tape"></div>
-    <aside class="tv glass" id="tv" hidden>
-      <div class="tv-screen"><div id="sp"></div><div class="tv-off" id="screenOff" hidden></div></div>
-    </aside>
-  </div>
-
-  <div class="caption">
-    <h2 id="nowTitle">Compact Cassette</h2>
-    <p id="nowArtist">Every song you play adds a colored stripe to your monthly tape. Pick a shelf to start.</p>
-  </div>
-
-  <div class="dock glass">
-    <button class="ghostbtn" data-open="shelves" aria-label="Open music shelves">
-      <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg><span>Shelves</span>
-    </button>
-    <div class="player">
-      <div class="ctrls">
-        <button class="ctl" id="prevBtn" aria-label="Previous song"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
-        <button class="ctl play" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
-        <button class="ctl" id="nextBtn" aria-label="Next song"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
-      </div>
-      <div class="progress">
-        <span id="tCur">0:00</span>
-        <div class="bar-track" id="seek" role="slider" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><i id="fill"></i></div>
-        <span id="tDur">0:00</span>
+    <!-- the cassette: a real photo, with its two hubs cut out so they can spin -->
+    <div class="tape out" id="tape" role="button" tabindex="0" aria-label="Cassette. Drag it into the deck, or press Enter to put it in.">
+      <div class="tape-body">
+        <img src="assets/cassette.jpg" alt="" draggable="false">
+        <img class="hub hl" id="hubL" src="assets/reelL.png" alt="" draggable="false">
+        <img class="hub hr" id="hubR" src="assets/reelR.png" alt="" draggable="false">
+        <div class="label"><span class="ink" id="ink">mood tape vol. 1</span></div>
+        <span class="sticker" id="sticker" aria-hidden="true"></span>
       </div>
     </div>
-    <button class="ghostbtn" data-open="byo" aria-label="Add your own music">
-      <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg><span>Your music</span>
-    </button>
-  </div>
 
-  <footer class="foot tiny">
-    <span>No. 01</span>
-    <span class="hide-sm">Retro listening club</span>
-    <span class="masking" id="masking">side A</span>
-    <span class="hide-sm" id="moodNow">mood: —</span>
-    <span>by Kavya</span>
+    <div class="deck" id="deck">
+      <div class="deck-top"><span>STEREO CASSETTE DECK</span><span class="vu" id="vu" aria-hidden="true"></span><span>DOLBY B NR</span></div>
+      <div class="slot" id="slot"><span class="slot-hint" id="hint">drag the tape in here</span></div>
+      <div class="door" id="door" aria-hidden="true"><span>AUTO REVERSE</span><span>TYPE II · HIGH</span></div>
+      <div class="keys">
+        <button class="key" id="rewBtn" aria-label="Previous song"><svg viewBox="0 0 24 24"><path d="M11 6v12L3 12zM21 6v12l-8-6z"/></svg></button>
+        <button class="key" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg></button>
+        <button class="key" id="ffBtn" aria-label="Next song"><svg viewBox="0 0 24 24"><path d="M13 6v12l8-6zM3 6v12l8-6z"/></svg></button>
+        <button class="key eject" id="ejectBtn" aria-label="Eject the tape"><svg viewBox="0 0 24 24"><path d="M12 5l8 9H4zM4 16h16v3H4z"/></svg></button>
+        <span class="led" id="led" aria-hidden="true"></span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="now">
+    <div class="meta"><span id="sideLine">SIDE A · TYPE II · 90 MIN</span><span id="moodLine"></span></div>
+    <h1 id="nowTitle">Put the tape in</h1>
+    <p id="nowArtist">Drag the cassette into the deck. Or tap it.</p>
+    <div class="spwrap" id="tv" hidden><div id="sp"></div></div>
+    <div class="bottom">
+      <span>©2026 KS</span>
+      <span class="progress" aria-hidden="true"><i id="fill"></i></span>
+      <span><span id="tCur">0:00</span> / <span id="tDur">0:00</span></span>
+      <button id="soundBtn" aria-pressed="true">Sound on</button>
+    </div>
   </footer>
 </div>
 
-<!-- ===== Glass panels (open on top, nothing scrolls on the page) ===== -->
+<!-- ===== panels ===== -->
 <div class="scrim" id="scrim" hidden></div>
 
-<section class="panel glass" id="panel-shelves" hidden role="dialog" aria-modal="true" aria-labelledby="shelvesH">
-  <div class="panel-head"><h3 id="shelvesH">Shelves</h3><button class="x" data-close aria-label="Close">×</button></div>
+<section class="panel" id="panel-shelves" hidden role="dialog" aria-modal="true" aria-labelledby="shelvesH">
+  <div class="panel-head"><h3 id="shelvesH">Shelves</h3><button class="x" data-close aria-label="Close">Close</button></div>
   <div class="tabs" id="tabs" role="tablist" aria-label="Music shelves"></div>
   <p class="blurb" id="blurb"></p>
   <ol class="songs" id="songs"></ol>
 </section>
 
-<section class="panel glass" id="panel-byo" hidden role="dialog" aria-modal="true" aria-labelledby="byoH">
-  <div class="panel-head"><h3 id="byoH">Your music</h3><button class="x" data-close aria-label="Close">×</button></div>
-  <p class="blurb">First pick how it feels. That color goes on your tape. Spotify plays full songs if you're logged in to Spotify in this browser, and 30-second previews if you're not.</p>
+<section class="panel" id="panel-byo" hidden role="dialog" aria-modal="true" aria-labelledby="byoH">
+  <div class="panel-head"><h3 id="byoH">Your music</h3><button class="x" data-close aria-label="Close">Close</button></div>
+  <p class="blurb">Pick how it feels first. That color goes on your tape. Spotify plays full songs if you're logged in to Spotify in this browser, and 30-second previews if you're not.</p>
   <div class="chips" id="byoMoods"></div>
   <form class="row" id="linkForm">
     <label class="sr" for="linkIn">Spotify link</label>
     <input id="linkIn" type="url" placeholder="Paste a Spotify song, album or playlist link" autocomplete="off">
-    <button class="solid" type="submit">Play link</button>
+    <button class="btn" type="submit">Use link</button>
   </form>
   <div class="row">
-    <label class="solid outline" for="fileIn">Play a song from my device</label>
+    <label class="btn ghost" for="fileIn">Use a song from my device</label>
     <input id="fileIn" type="file" accept="audio/*" class="sr">
   </div>
   <p class="small">Files stay on your device. Nothing is uploaded.</p>
 </section>
 
-<section class="panel glass wide" id="panel-month" hidden role="dialog" aria-modal="true" aria-labelledby="monthTitle">
-  <div class="panel-head"><h3 id="monthTitle">My month</h3><button class="x" data-close aria-label="Close">×</button></div>
+<section class="panel wide" id="panel-month" hidden role="dialog" aria-modal="true" aria-labelledby="monthTitle">
+  <div class="panel-head"><h3 id="monthTitle">My month</h3><button class="x" data-close aria-label="Close">Close</button></div>
   <div class="stripes" id="stripes"></div>
   <p class="insight" id="insight"></p>
   <div class="legend" id="legend"></div>
@@ -108,17 +109,18 @@
     <div>
       <h4>Recently on your tape</h4>
       <ol class="recent" id="recent"></ol>
-      <a class="solid mt" href="print.html">Print my tape</a>
+      <a class="btn mt" href="print.html">Print my tape</a>
     </div>
   </div>
 </section>
 
-<p class="warn glass" id="fileWarn" hidden>Opened straight from your computer, so some songs may not play. Use the live site link.</p>
+<p class="warn" id="fileWarn" hidden>Opened straight from your computer, so some songs may not play. Use the live site link.</p>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<audio id="audio" preload="metadata"></audio>
+<audio id="audio" preload="metadata" crossorigin="anonymous"></audio>
 
 <script src="songs.js"></script>
 <script src="shared.js"></script>
+<script src="sound.js"></script>
 <script src="app.js"></script>
 <script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
 </body>
