@@ -6,7 +6,6 @@ Made by Kavya Srivastava.
 ## What's in the folder
 | File | What it does |
 |---|---|
-| `poster.css` | Styling for the landing page (the grainy blue poster look) |
 | `index.html` + `tape.css` | The main page: a real cassette you drag into a deck. One screen, no scrolling |
 | `sound.js` | All sound effects (clunk, eject, keys, rewind whirr, tape hiss), synthesized in the browser. No audio files |
 | `assets/` | The cassette photo and the two hub cut-outs that spin |
